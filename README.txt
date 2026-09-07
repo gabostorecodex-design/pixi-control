@@ -1,7 +1,7 @@
-PIXI V8.1 LIFE + BUILTIN BLE
+PIXI V8.4 LIFE + HTTPS BLE
 =========================
 
-V8 agrega:
+V8.4 incluye:
 - motor local 2M+
 - memoria persistente
 - nombre y gustos
@@ -21,7 +21,8 @@ V8 agrega:
 - logros
 - BLE
 - ESP-NOW para tus otras ESP32
-- pagina HTTPS lista para GitHub Pages
+- pagina HTTPS lista para GitHub Pages con Whisper local
+- IA generativa Qwen2.5 local y gratuita en el navegador, sin API key
 - microfono y TTS del telefono
 
 LINK HTTPS / MICROFONO
@@ -46,7 +47,7 @@ github-pages/
 Sube todo a un repo, por ejemplo "pixi-control", activa GitHub Pages con
 GitHub Actions y la URL sera normalmente:
 
-https://TU_USUARIO.github.io/pixi-control/
+https://gabostorecodex-design.github.io/pixi-control/
 
 GitHub Pages usa HTTPS.
 
@@ -55,6 +56,7 @@ ARDUINO
 Instala:
 1. esp32 by Espressif Systems
 2. LovyanGFX
+3. NimBLE-Arduino de h2zero
 
 Placa:
 ESP32 Dev Module
@@ -64,7 +66,7 @@ CPU 240 MHz
 Flash 4MB
 PSRAM Disabled
 Upload Speed 115200
-Partition Scheme Huge APP recomendado
+Partition Scheme Minimal SPIFFS recomendado para conservar OTA
 
 Archivo:
 PIXI_CYD_V8_LIFE_HTTPS_BLE.ino
@@ -84,22 +86,4 @@ Si no insertas tarjeta, Pixi sigue funcionando.
 
 NOTA:
 No se puede crear por software un microfono o parlante fisico inexistente.
-Esta V8 usa el telefono para audio. Una V9 futura puede usar INMP441 + parlante.
-
-
-V8.1 - CORRECCION BLE
----------------------
-Esta version YA NO necesita instalar NimBLE-Arduino.
-
-Usa las bibliotecas BLE incluidas en el paquete:
-esp32 by Espressif Systems
-
-Si Arduino mostraba:
-NimBLEDevice.h: No such file or directory
-
-usa esta V8.1.
-
-Bibliotecas externas necesarias:
-- LovyanGFX
-
-BLEDevice, BLEServer, BLEUtils y BLE2902 vienen con el paquete ESP32.
+Esta V8.4 usa el telefono para audio e IA. Una version futura puede usar INMP441 + parlante.

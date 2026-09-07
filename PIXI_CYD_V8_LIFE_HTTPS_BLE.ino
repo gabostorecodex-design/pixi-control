@@ -1,12 +1,12 @@
 /*
-  PIXI CYD V8.2 LIFE + BUILTIN BLE
+  PIXI CYD V8.4 LIFE + HTTPS BLE
   ESP32-2432S028 / ESP32-2432S028R
 
   CAMBIOS CLAVE:
   - SIN Gemini, SIN API, SIN ArduinoJson, SIN HTTP externo.
   - Respuestas locales practicamente instantaneas.
-  - 2.097.152 combinaciones genericas posibles:
-      64 inicios x 40 cuerpos x 48 finales.
+  - Mas de 2.097.152 combinaciones genericas posibles:
+      32 aperturas x 32 matices x 32 cuerpos x 65 cierres.
   - Ademas, respuestas especificas para saludos, estado, despedidas,
     dormir, despertar, cariño, juegos, enojo, tristeza, sorpresa, etc.
   - Normaliza variantes: hola/holi/oli/holaaaa/oliiii...
@@ -16,10 +16,9 @@
 
   MICROFONO:
   - Chrome suele bloquear microfono en paginas HTTP locales (not-allowed).
-  - V6 intenta SpeechRecognition solo si el navegador lo permite.
-  - Si no, el mismo boton TOCA Y HABLA abre/focaliza el campo de texto
-    para que uses el microfono del teclado Android/Gboard.
-  - Ese dictado usa el permiso del TECLADO, no el permiso del sitio.
+  - El panel local intenta SpeechRecognition cuando el navegador lo permite.
+  - La web HTTPS usa Whisper local en el telefono y envia el texto por BLE.
+  - El teclado Android/Gboard sigue disponible como alternativa.
 
   Libreria externa:
   - LovyanGFX
@@ -33,16 +32,15 @@
 #include <WebServer.h>
 #include <Preferences.h>
 #include <ESPmDNS.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+#include <NimBLEDevice.h>
 #include <SPI.h>
 #include <SD.h>
 #include <Update.h>
 #include <esp_now.h>
 #include <time.h>
 #include <sys/time.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
 
 #define DISPLAY_CYD_2USB 1
 #include "LGFX_CYD.hpp"
@@ -132,7 +130,7 @@ String memPixi[LOCAL_MEMORY_MAX];
 uint8_t memCount = 0;
 
 
-// ---------------- PIXI LIFE V8 ----------------
+// ---------------- PIXI LIFE V8.4 ----------------
 String userName = "";
 String personality = "tierna";
 String favoriteGame = "";
@@ -190,10 +188,14 @@ static const char* BLE_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
 static const char* BLE_RX_UUID      = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
 static const char* BLE_TX_UUID      = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
 
-BLECharacteristic* bleTxChar = nullptr;
+NimBLECharacteristic* bleTxChar = nullptr;
 String bleRxBuffer = "";
-String blePendingInput = "";
-volatile bool bleHasPendingInput = false;
+String aiPendingQuestion = "";
+struct BleMessage { char text[301]; };
+QueueHandle_t bleRxQueue = nullptr;
+volatile bool bleQueueOverflow = false;
+
+void bleSendLine(const String& line);
 
 SPIClass sdSPI(VSPI);
 
@@ -322,6 +324,11 @@ bool hasAny(const String& s, const char* a, const char* b=nullptr,
   if (c && s.indexOf(c) >= 0) return true;
   if (d && s.indexOf(d) >= 0) return true;
   return false;
+}
+
+bool isValidPersonality(const String& value) {
+  return value == "tierna" || value == "juguetona" || value == "timida" ||
+         value == "traviesa" || value == "curiosa" || value == "dormilona";
 }
 
 
@@ -484,6 +491,7 @@ String exportMemoryText(){
 }
 
 void importMemoryText(String data){
+  if(data.length()>4096)data=data.substring(0,4096);
   int start=0;
   while(start<(int)data.length()){
     int end=data.indexOf('\n',start);
@@ -493,20 +501,20 @@ void importMemoryText(String data){
     if(eq>0){
       String k=line.substring(0,eq),v=line.substring(eq+1);
       k.trim();v.trim();
-      if(k=="name")userName=v;
-      else if(k=="personality")personality=v;
-      else if(k=="favoriteGame")favoriteGame=v;
-      else if(k=="favoriteColor")favoriteColor=v;
+      if(k=="name")userName=v.substring(0,40);
+      else if(k=="personality"&&isValidPersonality(v))personality=v;
+      else if(k=="favoriteGame")favoriteGame=v.substring(0,60);
+      else if(k=="favoriteColor")favoriteColor=v.substring(0,40);
       else if(k=="happiness")happiness=constrain(v.toInt(),0,100);
       else if(k=="energy")energy=constrain(v.toInt(),0,100);
       else if(k=="trust")trustLevel=constrain(v.toInt(),0,100);
       else if(k=="irritation")irritation=constrain(v.toInt(),0,100);
       else if(k=="boredom")boredom=constrain(v.toInt(),0,100);
       else if(k=="curiosity")curiosity=constrain(v.toInt(),0,100);
-      else if(k=="alarmHour")alarmHour=v.toInt();
-      else if(k=="alarmMinute")alarmMinute=v.toInt();
-      else if(k=="alarmText")alarmText=v;
-      else if(k=="fact")addFact(v);
+      else if(k=="alarmHour")alarmHour=constrain(v.toInt(),-1,23);
+      else if(k=="alarmMinute")alarmMinute=constrain(v.toInt(),-1,59);
+      else if(k=="alarmText")alarmText=v.substring(0,120);
+      else if(k=="fact")addFact(v.substring(0,160));
     }
     start=end+1;
   }
@@ -519,7 +527,7 @@ void setupSDCard(){
   sdReady=SD.begin(5,sdSPI,10000000);
   if(sdReady){
     File f=SD.open("/pixi_boot.txt",FILE_APPEND);
-    if(f){f.println("PIXI V8.2 boot");f.close();}
+    if(f){f.println("PIXI V8.4 boot");f.close();}
   }
 }
 
@@ -558,6 +566,8 @@ void updateDailyRoutine(){
   if(alarmHour>=0&&alarmMinute>=0&&t.tm_hour==alarmHour&&t.tm_min==alarmMinute&&lastAlarmDay!=t.tm_yday){
     lastAlarmDay=t.tm_yday;
     speechText=alarmText;speechUntil=millis()+10000;setFace(FACE_SURPRISED,8000);
+    bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(alarmText)+
+                "\",\"face\":\"surprised\",\"sound\":\"alarm\"}");
   }
 
   if(t.tm_hour>=7&&t.tm_hour<=10&&lastMorningDay!=t.tm_yday&&millis()>30000){
@@ -695,8 +705,8 @@ String processUserMessage(String heard,String& faceOut,String& soundOut){
 }
 
 // ---------------- MOTOR LOCAL 2.097.152+ ----------------
-// 32 aperturas x 32 matices x 32 cuerpos x 64 cierres
-// = 2.097.152 combinaciones genericas posibles.
+// 32 aperturas x 32 matices x 32 cuerpos x 65 cierres
+// = 2.129.920 combinaciones genericas posibles.
 
 void rememberLocal(const String& user, const String& pixi) {
   if (memCount < LOCAL_MEMORY_MAX) {
@@ -771,17 +781,13 @@ String generic2MReply() {
   const uint16_t NC = sizeof(C)/sizeof(C[0]);
   const uint16_t ND = sizeof(D)/sizeof(D[0]);
 
-  uint32_t r = esp_random() ^ phraseSeed++ ^ millis();
-
-  String out = String(A[r % NA]) + ", ";
-  r = r * 1664525UL + 1013904223UL;
-  out += B[r % NB];
+  phraseSeed++;
+  String out = String(A[esp_random() % NA]) + ", ";
+  out += B[esp_random() % NB];
   out += ". ";
-  r = r * 1664525UL + 1013904223UL;
-  out += C[r % NC];
+  out += C[esp_random() % NC];
   out += ". ";
-  r = r * 1664525UL + 1013904223UL;
-  out += D[r % ND];
+  out += D[esp_random() % ND];
 
   return out;
 }
@@ -817,13 +823,11 @@ String spontaneousQuestion() {
     "que cambiarias?","que recomendarias?","que te gustaria contarme?","pi?"
   };
 
-  uint32_t r = esp_random() ^ millis() ^ (phraseSeed++ << 1);
-  String out = String(Q1[r % 32]) + ", ";
-  r = r * 1103515245UL + 12345UL;
-  out += Q2[r % 32];
-  r = r * 1103515245UL + 12345UL;
+  phraseSeed++;
+  String out = String(Q1[esp_random() % 32]) + ", ";
+  out += Q2[esp_random() % 32];
   out += " ";
-  out += Q3[r % 32];
+  out += Q3[esp_random() % 32];
   return out;
 }
 
@@ -1123,7 +1127,7 @@ String localBrainFast(String input, String &faceOut, String &soundOut) {
     return "¿De que persona o personaje me estas hablando?";
   }
 
-  // Generico combinatorio: 2.097.152 posibilidades.
+  // Generico combinatorio: 2.129.920 posibilidades.
   faceOut = irritation >= 50 ? "bored" : (boredom >= 70 ? "thinking" : "happy");
   soundOut = irritation >= 50 ? "thinking" : "curious";
   return generic2MReply();
@@ -1151,6 +1155,9 @@ void noteUserInteraction(const String& heard) {
 }
 
 void updateMoodEngine() {
+  static uint32_t energyTicks = 0;
+  static uint32_t idleHappinessTicks = 0;
+  static uint32_t activeHappinessTicks = 0;
   uint32_t now = millis();
   if (lastMoodTickAt == 0) lastMoodTickAt = now;
 
@@ -1159,15 +1166,23 @@ void updateMoodEngine() {
     lastMoodTickAt += steps * 10000;
 
     irritation -= (int)steps * 2;
-    energy -= (int)steps / 6;
+    energyTicks += steps;
+    energy -= energyTicks / 6;
+    energyTicks %= 6;
 
     if (lastUserTalkAt == 0 || now - lastUserTalkAt > 45000) {
       boredom += (int)steps * 2;
       curiosity += (int)steps;
-      happiness -= (int)steps / 5;
+      idleHappinessTicks += steps;
+      happiness -= idleHappinessTicks / 5;
+      idleHappinessTicks %= 5;
+      activeHappinessTicks = 0;
     } else {
       boredom -= (int)steps;
-      happiness += (int)steps / 8;
+      activeHappinessTicks += steps;
+      happiness += activeHappinessTicks / 8;
+      activeHappinessTicks %= 8;
+      idleHappinessTicks = 0;
     }
 
     happiness=constrain(happiness,0,100);
@@ -1234,6 +1249,9 @@ void saySpontaneously() {
   speechUntil = now + 7000;
   spontaneousCount++;
   logToSD("PIXI*",phrase);
+  bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(phrase)+
+              "\",\"face\":\""+String(faceName(f))+
+              "\",\"sound\":\""+jsonEscape(lastSound)+"\"}");
 
   boredom -= 18;
   curiosity -= 8;
@@ -1287,11 +1305,13 @@ void handleBleCommand(String msg){
   }
 
   if(msg.startsWith("@name:")){
-    userName=msg.substring(6);userName.trim();saveLifeState();bleSendLine(statusJsonLine());return;
+    userName=msg.substring(6,46);userName.trim();saveLifeState();bleSendLine(statusJsonLine());return;
   }
 
   if(msg.startsWith("@personality:")){
-    personality=msg.substring(13);personality.trim();saveLifeState();bleSendLine(statusJsonLine());return;
+    String requested=msg.substring(13);requested.trim();
+    if(!isValidPersonality(requested)){bleSendLine("{\"type\":\"error\",\"message\":\"Personalidad no valida\"}");return;}
+    personality=requested;saveLifeState();bleSendLine(statusJsonLine());return;
   }
 
   if(msg.startsWith("@time:")){
@@ -1306,9 +1326,14 @@ void handleBleCommand(String msg){
   if(msg.startsWith("@alarm:")){
     int p1=msg.indexOf(':',7),p2=msg.indexOf(':',p1+1);
     if(p1>0&&p2>0){
-      alarmHour=msg.substring(7,p1).toInt();
-      alarmMinute=msg.substring(p1+1,p2).toInt();
-      alarmText=msg.substring(p2+1);
+      int requestedHour=msg.substring(7,p1).toInt();
+      int requestedMinute=msg.substring(p1+1,p2).toInt();
+      if(requestedHour<0||requestedHour>23||requestedMinute<0||requestedMinute>59){
+        bleSendLine("{\"type\":\"error\",\"message\":\"Hora de alarma no valida\"}");return;
+      }
+      alarmHour=requestedHour;
+      alarmMinute=requestedMinute;
+      alarmText=msg.substring(p2+1,p2+121);
       saveLifeState();
       bleSendLine("{\"type\":\"ok\",\"alarm\":true}");
     }
@@ -1317,6 +1342,32 @@ void handleBleCommand(String msg){
 
   if(msg=="@export"){
     bleSendLine("{\"type\":\"memory\",\"data\":\""+jsonEscape(exportMemoryText())+"\"}");
+    return;
+  }
+
+  if(msg.startsWith("@ai-user:")){
+    aiPendingQuestion=msg.substring(9);aiPendingQuestion.trim();
+    if(aiPendingQuestion.length()>240)aiPendingQuestion=aiPendingQuestion.substring(0,240);
+    lastHeard=aiPendingQuestion;
+    sleeping=false;setFace(FACE_THINKING,30000);
+    speechText="Pensando...";speechUntil=millis()+30000;
+    return;
+  }
+
+  if(msg.startsWith("@ai-reply:")){
+    String aiReply=msg.substring(10);aiReply.trim();
+    if(!aiReply.length())return;
+    if(aiReply.length()>280)aiReply=aiReply.substring(0,280);
+    String question=aiPendingQuestion.length()?aiPendingQuestion:String("Pregunta por IA");
+    aiPendingQuestion="";
+    noteUserInteraction(question);conversationsCount++;
+    happiness=min(happiness+2,100);energy=max(energy-1,0);trustLevel=min(trustLevel+1,100);
+    lastReply=aiReply;lastSound="curious";rememberLocal(question,aiReply);
+    speechText=aiReply;speechUntil=millis()+14000;setFace(FACE_HAPPY,10000);
+    logToSD("USER",question);logToSD("PIXI-AI",aiReply);checkAchievements();saveLifeState();
+    bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(aiReply)+
+                "\",\"face\":\"happy\",\"sound\":\"curious\"}");
+    bleSendLine(statusJsonLine());
     return;
   }
 
@@ -1336,32 +1387,26 @@ void handleBleCommand(String msg){
   bleSendLine(statusJsonLine());
 }
 
-class PixiServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) override {
-    bleConnected=true;
-    happiness=min(happiness+5,100);
-    boredom=max(boredom-10,0);
-    setFace(FACE_HAPPY,3500);
+class PixiServerCallbacks:public NimBLEServerCallbacks{
+  void onConnect(NimBLEServer* pServer,NimBLEConnInfo& connInfo) override{
+    bleConnected=true;happiness=min(happiness+5,100);boredom=max(boredom-10,0);setFace(FACE_HAPPY,3500);
   }
-
-  void onDisconnect(BLEServer* pServer) override {
-    bleConnected=false;
-    delay(100);
-    pServer->getAdvertising()->start();
+  void onDisconnect(NimBLEServer* pServer,NimBLEConnInfo& connInfo,int reason) override{
+    bleConnected=false;NimBLEDevice::getAdvertising()->start();
   }
 };
 
-class PixiRxCallbacks : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic* pCharacteristic) override {
-    String v = pCharacteristic->getValue().c_str();
-
-    for(size_t i=0;i<v.length();++i){
+class PixiRxCallbacks:public NimBLECharacteristicCallbacks{
+  void onWrite(NimBLECharacteristic* pCharacteristic,NimBLEConnInfo& connInfo) override{
+    std::string v=pCharacteristic->getValue();
+    for(size_t i=0;i<v.size();++i){
       char c=v[i];
       if(c=='\n'){
         if(bleRxBuffer.length()){
-          blePendingInput=bleRxBuffer;
+          BleMessage message={};
+          bleRxBuffer.toCharArray(message.text,sizeof(message.text));
           bleRxBuffer="";
-          bleHasPendingInput=true;
+          if(bleRxQueue==nullptr||xQueueSend(bleRxQueue,&message,0)!=pdTRUE)bleQueueOverflow=true;
         }
       }else{
         bleRxBuffer+=c;
@@ -1375,32 +1420,24 @@ PixiServerCallbacks pixiServerCallbacks;
 PixiRxCallbacks pixiRxCallbacks;
 
 void setupBLE(){
-  BLEDevice::init("PIXI");
-  BLEDevice::setMTU(185);
-
-  BLEServer* bs = BLEDevice::createServer();
+  bleRxQueue=xQueueCreate(8,sizeof(BleMessage));
+  if(bleRxQueue==nullptr){Serial.println("ERROR: no se pudo crear la cola BLE");return;}
+  NimBLEDevice::init("PIXI");
+  NimBLEDevice::setMTU(185);
+  NimBLEServer* bs=NimBLEDevice::createServer();
   bs->setCallbacks(&pixiServerCallbacks);
+  bs->advertiseOnDisconnect(true);
 
-  BLEService* service = bs->createService(BLE_SERVICE_UUID);
-
-  bleTxChar = service->createCharacteristic(
-    BLE_TX_UUID,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
-  bleTxChar->addDescriptor(new BLE2902());
-
-  BLECharacteristic* rx = service->createCharacteristic(
-    BLE_RX_UUID,
-    BLECharacteristic::PROPERTY_WRITE |
-    BLECharacteristic::PROPERTY_WRITE_NR
+  NimBLEService* service=bs->createService(BLE_SERVICE_UUID);
+  bleTxChar=service->createCharacteristic(BLE_TX_UUID,NIMBLE_PROPERTY::NOTIFY);
+  NimBLECharacteristic* rx=service->createCharacteristic(
+    BLE_RX_UUID,NIMBLE_PROPERTY::WRITE|NIMBLE_PROPERTY::WRITE_NR
   );
   rx->setCallbacks(&pixiRxCallbacks);
-
-  service->start();
-
-  BLEAdvertising* adv = BLEDevice::getAdvertising();
+  NimBLEAdvertising* adv=NimBLEDevice::getAdvertising();
+  adv->setName("PIXI");
   adv->addServiceUUID(BLE_SERVICE_UUID);
-  adv->setScanResponse(true);
+  adv->enableScanResponse(true);
   adv->start();
 }
 
@@ -1970,15 +2007,21 @@ void setupWeb() {
 
 
   server.on("/profile/save",HTTP_POST,[](){
-    if(server.hasArg("name"))userName=server.arg("name");
-    if(server.hasArg("personality"))personality=server.arg("personality");
-    userName.trim();personality.trim();saveLifeState();server.send(200,"text/plain","OK");
+    if(server.hasArg("name")){userName=server.arg("name").substring(0,40);userName.trim();}
+    if(server.hasArg("personality")){
+      String requested=server.arg("personality");requested.trim();
+      if(!isValidPersonality(requested)){server.send(400,"text/plain","Personalidad no valida");return;}
+      personality=requested;
+    }
+    saveLifeState();server.send(200,"text/plain","OK");
   });
 
   server.on("/alarm/save",HTTP_POST,[](){
-    alarmHour=server.hasArg("h")?server.arg("h").toInt():-1;
-    alarmMinute=server.hasArg("m")?server.arg("m").toInt():-1;
-    if(server.hasArg("text"))alarmText=server.arg("text");
+    int requestedHour=server.hasArg("h")?server.arg("h").toInt():-1;
+    int requestedMinute=server.hasArg("m")?server.arg("m").toInt():-1;
+    if(requestedHour<0||requestedHour>23||requestedMinute<0||requestedMinute>59){server.send(400,"text/plain","Hora no valida");return;}
+    alarmHour=requestedHour;alarmMinute=requestedMinute;
+    if(server.hasArg("text"))alarmText=server.arg("text").substring(0,120);
     saveLifeState();server.send(200,"text/plain","OK");
   });
 
@@ -2013,12 +2056,16 @@ void setupWeb() {
   });
 
   server.on("/update",HTTP_POST,
-    [](){server.send(200,"text/plain",Update.hasError()?"ERROR":"OK - reiniciando");delay(600);ESP.restart();},
+    [](){
+      bool ok=!Update.hasError();
+      server.send(ok?200:500,"text/plain",ok?"OK - reiniciando":"ERROR de actualizacion");
+      if(ok){delay(600);ESP.restart();}
+    },
     [](){
       HTTPUpload& upload=server.upload();
-      if(upload.status==UPLOAD_FILE_START)Update.begin(UPDATE_SIZE_UNKNOWN);
-      else if(upload.status==UPLOAD_FILE_WRITE)Update.write(upload.buf,upload.currentSize);
-      else if(upload.status==UPLOAD_FILE_END)Update.end(true);
+      if(upload.status==UPLOAD_FILE_START){if(!Update.begin(UPDATE_SIZE_UNKNOWN))Update.printError(Serial);}
+      else if(upload.status==UPLOAD_FILE_WRITE){if(Update.write(upload.buf,upload.currentSize)!=upload.currentSize)Update.printError(Serial);}
+      else if(upload.status==UPLOAD_FILE_END){if(!Update.end(true))Update.printError(Serial);}
     }
   );
 
@@ -2437,7 +2484,7 @@ void bootAnimation(){
   canvas.setTextDatum(textdatum_t::middle_center);
   canvas.setTextColor(C_WHITE,C_BG);
   canvas.setFont(&fonts::Font2);
-  canvas.drawString("PIXI V8.2",160,92);
+  canvas.drawString("PIXI V8.4",160,92);
   canvas.setFont(&fonts::Font0);
   canvas.setTextColor(C_PINK,C_BG);
   canvas.drawString("LIFE",160,123);
@@ -2492,7 +2539,7 @@ void setup(){
   setFace(FACE_HAPPY,4500);
 
   Serial.println();
-  Serial.println("PIXI V8.2.1 LIFE listo");
+  Serial.println("PIXI V8.4 LIFE listo");
   Serial.print("AP: ");Serial.println(AP_NAME);
   Serial.print("AP IP: ");Serial.println(WiFi.softAPIP());
 
@@ -2515,11 +2562,11 @@ void loop(){
   saySpontaneously();
   broadcastPixiState();
 
-  if(bleHasPendingInput){
-    bleHasPendingInput=false;
-    String msg=blePendingInput;
-    blePendingInput="";
-    handleBleCommand(msg);
+  BleMessage bleMessage={};
+  if(bleRxQueue!=nullptr&&xQueueReceive(bleRxQueue,&bleMessage,0)==pdTRUE)handleBleCommand(String(bleMessage.text));
+  if(bleQueueOverflow){
+    bleQueueOverflow=false;
+    bleSendLine("{\"type\":\"error\",\"message\":\"Cola BLE llena; repite el ultimo comando\"}");
   }
 
   uint32_t now=millis();

@@ -5,5 +5,8 @@
   "display": "standalone",
   "background_color": "#070b11",
   "theme_color": "#101722",
-  "description": "Pixi HTTPS + BLE"
+  "description": "Control por voz local y Bluetooth para Pixi",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
 }
