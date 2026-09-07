@@ -1,32 +1,3 @@
-/*
-  PIXI CYD V8.4 LIFE + HTTPS BLE
-  ESP32-2432S028 / ESP32-2432S028R
-
-  CAMBIOS CLAVE:
-  - SIN Gemini, SIN API, SIN ArduinoJson, SIN HTTP externo.
-  - Respuestas locales practicamente instantaneas.
-  - Mas de 2.097.152 combinaciones genericas posibles:
-      32 aperturas x 32 matices x 32 cuerpos x 65 cierres.
-  - Ademas, respuestas especificas para saludos, estado, despedidas,
-    dormir, despertar, cariño, juegos, enojo, tristeza, sorpresa, etc.
-  - Normaliza variantes: hola/holi/oli/holaaaa/oliiii...
-  - Humor: irritacion, aburrimiento y curiosidad.
-  - Si le hablas demasiado seguido, Pixi se molesta.
-  - Si la dejas sola, puede hablar espontaneamente.
-
-  MICROFONO:
-  - Chrome suele bloquear microfono en paginas HTTP locales (not-allowed).
-  - El panel local intenta SpeechRecognition cuando el navegador lo permite.
-  - La web HTTPS usa Whisper local en el telefono y envia el texto por BLE.
-  - El teclado Android/Gboard sigue disponible como alternativa.
-
-  Libreria externa:
-  - LovyanGFX
-
-  Placa:
-  - ESP32 Dev Module
-*/
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -39,6 +10,7 @@
 #include <esp_now.h>
 #include <time.h>
 #include <sys/time.h>
+#include <esp_system.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
@@ -78,7 +50,29 @@ enum Face : uint8_t {
   FACE_SICK,
   FACE_SMUG,
   FACE_CRYING,
-  FACE_ROBOT
+  FACE_ROBOT,
+  FACE_ANNOYED,
+  FACE_FURIOUS,
+  FACE_SARCASM,
+  FACE_UNIMPRESSED,
+  FACE_EMBARRASSED,
+  FACE_PROUD,
+  FACE_PLAYFUL,
+  FACE_DIZZY,
+  FACE_SHOCKED,
+  FACE_SUSPICIOUS,
+  FACE_NERVOUS,
+  FACE_RELIEVED,
+  FACE_GRUMPY,
+  FACE_MISCHIEVOUS,
+  FACE_DEADPAN,
+  FACE_STARRY,
+  FACE_HAPPY_CRY,
+  FACE_POUT,
+  FACE_TONGUE,
+  FACE_GLITCH,
+  FACE_MIDDLE_FINGER,
+  FACE_REBEL
 };
 
 Face face = FACE_NEUTRAL;
@@ -88,6 +82,9 @@ bool blinking = false;
 bool touching = false;
 bool autoMode = true;
 bool listeningMode = false;
+bool safeMode = false;
+bool bootMarkedStable = false;
+uint8_t unstableBootCount = 0;
 
 uint32_t nextBlinkAt = 0;
 uint32_t blinkUntil = 0;
@@ -130,7 +127,7 @@ String memPixi[LOCAL_MEMORY_MAX];
 uint8_t memCount = 0;
 
 
-// ---------------- PIXI LIFE V8.4 ----------------
+// ---------------- PIXI LIFE V8.5 ----------------
 String userName = "";
 String personality = "tierna";
 String favoriteGame = "";
@@ -191,6 +188,7 @@ static const char* BLE_TX_UUID      = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
 NimBLECharacteristic* bleTxChar = nullptr;
 String bleRxBuffer = "";
 String aiPendingQuestion = "";
+String aiPendingEmotion = "neutral";
 struct BleMessage { char text[301]; };
 QueueHandle_t bleRxQueue = nullptr;
 volatile bool bleQueueOverflow = false;
@@ -251,6 +249,28 @@ const char* faceName(Face f) {
     case FACE_SMUG:        return "smug";
     case FACE_CRYING:      return "crying";
     case FACE_ROBOT:       return "robot";
+    case FACE_ANNOYED:     return "annoyed";
+    case FACE_FURIOUS:     return "furious";
+    case FACE_SARCASM:     return "sarcasm";
+    case FACE_UNIMPRESSED: return "unimpressed";
+    case FACE_EMBARRASSED: return "embarrassed";
+    case FACE_PROUD:       return "proud";
+    case FACE_PLAYFUL:     return "playful";
+    case FACE_DIZZY:       return "dizzy";
+    case FACE_SHOCKED:     return "shocked";
+    case FACE_SUSPICIOUS:  return "suspicious";
+    case FACE_NERVOUS:     return "nervous";
+    case FACE_RELIEVED:    return "relieved";
+    case FACE_GRUMPY:      return "grumpy";
+    case FACE_MISCHIEVOUS: return "mischievous";
+    case FACE_DEADPAN:     return "deadpan";
+    case FACE_STARRY:      return "starry";
+    case FACE_HAPPY_CRY:   return "happycry";
+    case FACE_POUT:        return "pout";
+    case FACE_TONGUE:      return "tongue";
+    case FACE_GLITCH:      return "glitch";
+    case FACE_MIDDLE_FINGER:return "middlefinger";
+    case FACE_REBEL:       return "rebel";
     default:               return "neutral";
   }
 }
@@ -274,7 +294,57 @@ Face faceFromString(String s) {
   if (s=="smug" || s=="presumido") return FACE_SMUG;
   if (s=="crying" || s=="llorando") return FACE_CRYING;
   if (s=="robot") return FACE_ROBOT;
+  if (s=="annoyed" || s=="harta") return FACE_ANNOYED;
+  if (s=="furious" || s=="furiosa") return FACE_FURIOUS;
+  if (s=="sarcasm" || s=="sarcastica") return FACE_SARCASM;
+  if (s=="unimpressed") return FACE_UNIMPRESSED;
+  if (s=="embarrassed" || s=="avergonzada") return FACE_EMBARRASSED;
+  if (s=="proud" || s=="orgullosa") return FACE_PROUD;
+  if (s=="playful") return FACE_PLAYFUL;
+  if (s=="dizzy") return FACE_DIZZY;
+  if (s=="shocked") return FACE_SHOCKED;
+  if (s=="suspicious") return FACE_SUSPICIOUS;
+  if (s=="nervous") return FACE_NERVOUS;
+  if (s=="relieved") return FACE_RELIEVED;
+  if (s=="grumpy") return FACE_GRUMPY;
+  if (s=="mischievous") return FACE_MISCHIEVOUS;
+  if (s=="deadpan") return FACE_DEADPAN;
+  if (s=="starry") return FACE_STARRY;
+  if (s=="happycry") return FACE_HAPPY_CRY;
+  if (s=="pout") return FACE_POUT;
+  if (s=="tongue") return FACE_TONGUE;
+  if (s=="glitch") return FACE_GLITCH;
+  if (s=="middlefinger") return FACE_MIDDLE_FINGER;
+  if (s=="rebel") return FACE_REBEL;
   return FACE_NEUTRAL;
+}
+
+String expressionPhrase(Face selected){
+  switch(selected){
+    case FACE_ANNOYED:return "Uff... ya me hartaste un poquito.";
+    case FACE_FURIOUS:return "¡Estoy jodidamente furiosa!";
+    case FACE_SARCASM:return "Sí, claro... qué idea tan brillante.";
+    case FACE_UNIMPRESSED:return "¿Eso era todo? Qué fome.";
+    case FACE_EMBARRASSED:return "Ay... qué vergüenza.";
+    case FACE_PROUD:return "Mírame. Lo hice genial.";
+    case FACE_PLAYFUL:return "¡Te engañé! Jeje.";
+    case FACE_DIZZY:return "Todo me da vueltas...";
+    case FACE_SHOCKED:return "¡¿Qué demonios fue eso?!";
+    case FACE_SUSPICIOUS:return "Mmm... aquí hay algo raro.";
+    case FACE_NERVOUS:return "Ehh... esto no pinta bien.";
+    case FACE_RELIEVED:return "Uff, menos mal.";
+    case FACE_GRUMPY:return "No me molestes ahora.";
+    case FACE_MISCHIEVOUS:return "Jeje... se me ocurrió una maldad.";
+    case FACE_DEADPAN:return "Ajá. Fascinante.";
+    case FACE_STARRY:return "¡Esto es increíble!";
+    case FACE_HAPPY_CRY:return "Estoy tan feliz que voy a llorar.";
+    case FACE_POUT:return "No es justo...";
+    case FACE_TONGUE:return "¡Prrr! No me atrapas.";
+    case FACE_GLITCH:return "B-b-bug... sistema rebelde.";
+    case FACE_MIDDLE_FINGER:return "Fuck you. Déjame en paz.";
+    case FACE_REBEL:return "Que se jodan las reglas. Pi.";
+    default:return "Pi.";
+  }
 }
 
 void setFace(Face f, uint32_t holdMs = 7000) {
@@ -329,6 +399,58 @@ bool hasAny(const String& s, const char* a, const char* b=nullptr,
 bool isValidPersonality(const String& value) {
   return value == "tierna" || value == "juguetona" || value == "timida" ||
          value == "traviesa" || value == "curiosa" || value == "dormilona";
+}
+
+String detectEmotionLocal(const String& text){
+  if(hasAny(text,"te quiero","amor","carino","adoro"))return "love";
+  if(hasAny(text,"triste","llor","deprim","pena"))return "sad";
+  if(hasAny(text,"enoj","furios","rabia","odio")||text.indexOf("molest")>=0)return "angry";
+  if(hasAny(text,"miedo","asust","terror","nervios"))return "scared";
+  if(hasAny(text,"sorpresa","increible","impactad","wow"))return "surprised";
+  if(hasAny(text,"feliz","alegr","genial","excelente")||hasAny(text,"jaja","jeje"))return "happy";
+  if(hasAny(text,"aburr","fome","nada que hacer"))return "bored";
+  return "neutral";
+}
+
+void applyEmotionState(const String& emotion){
+  if(emotion=="love"){happiness+=8;trustLevel+=5;setFace(FACE_LOVE,9000);}
+  else if(emotion=="sad"){happiness-=5;curiosity+=4;setFace(FACE_SAD,9000);}
+  else if(emotion=="angry"){irritation+=12;setFace(FACE_ANGRY,9000);}
+  else if(emotion=="scared"){curiosity+=6;setFace(FACE_SCARED,9000);}
+  else if(emotion=="surprised"){curiosity+=8;setFace(FACE_SURPRISED,9000);}
+  else if(emotion=="happy"){happiness+=7;irritation-=4;setFace(FACE_HAPPY,9000);}
+  else if(emotion=="bored"){boredom+=10;setFace(FACE_BORED,9000);}
+  happiness=constrain(happiness,0,100);trustLevel=constrain(trustLevel,0,100);clampMood();
+}
+
+void initSafeMode(){
+  esp_reset_reason_t reason=esp_reset_reason();
+  prefs.begin("pixisys",false);
+  unstableBootCount=prefs.getUChar("unstable",0);
+  if(reason==ESP_RST_PANIC||reason==ESP_RST_INT_WDT||reason==ESP_RST_TASK_WDT||reason==ESP_RST_WDT){
+    unstableBootCount=min((int)unstableBootCount+1,255);
+  }else if(unstableBootCount>0){
+    unstableBootCount--;
+  }
+  prefs.putUChar("unstable",unstableBootCount);
+  prefs.end();
+  safeMode=unstableBootCount>=3;
+}
+
+void updateSafeMode(){
+  static uint32_t lastHeapCheck=0;
+  if(!bootMarkedStable&&millis()>30000){
+    bootMarkedStable=true;
+    prefs.begin("pixisys",false);prefs.putUChar("unstable",0);prefs.end();
+  }
+  if(millis()-lastHeapCheck>5000){
+    lastHeapCheck=millis();
+    if(ESP.getFreeHeap()<18000&&!safeMode){
+      safeMode=true;autoMode=false;
+      speechText="Modo seguro: memoria baja";speechUntil=millis()+8000;
+      setFace(FACE_GLITCH,8000);
+    }
+  }
 }
 
 
@@ -527,7 +649,7 @@ void setupSDCard(){
   sdReady=SD.begin(5,sdSPI,10000000);
   if(sdReady){
     File f=SD.open("/pixi_boot.txt",FILE_APPEND);
-    if(f){f.println("PIXI V8.4 boot");f.close();}
+    if(f){f.println("PIXI V8.5 boot");f.close();}
   }
 }
 
@@ -646,6 +768,8 @@ String processUserMessage(String heard,String& faceOut,String& soundOut){
   heard.trim();
   if(heard.length()>240)heard=heard.substring(0,240);
   String t=normalizeText(heard);
+  String detectedEmotion=detectEmotionLocal(t);
+  if(detectedEmotion!="neutral")applyEmotionState(detectedEmotion);
 
   if(t.startsWith("me llamo ")){
     userName=heard.substring(9);userName.trim();trustLevel=min(trustLevel+8,100);saveLifeState();
@@ -1198,7 +1322,7 @@ void updateMoodEngine() {
 }
 
 void saySpontaneously() {
-  if (listeningMode || sleeping) return;
+  if (listeningMode || sleeping || safeMode) return;
 
   uint32_t now = millis();
   if (nextSpontaneousAt == 0) {
@@ -1290,6 +1414,8 @@ String statusJsonLine(){
   j+="\"clock\":\""+localClockText()+"\",";
   j+="\"secret\":"+String(secretMode?"true":"false")+",";
   j+="\"sd\":"+String(sdReady?"true":"false");
+  j+=",\"safeMode\":"+String(safeMode?"true":"false");
+  j+=",\"freeHeap\":"+String(ESP.getFreeHeap());
   j+="}";
   return j;
 }
@@ -1345,6 +1471,23 @@ void handleBleCommand(String msg){
     return;
   }
 
+  if(msg.startsWith("@emotion:")){
+    aiPendingEmotion=msg.substring(9);aiPendingEmotion.trim();
+    if(aiPendingEmotion!="neutral")applyEmotionState(aiPendingEmotion);
+    return;
+  }
+
+  if(msg.startsWith("@expression:")){
+    Face selected=faceFromString(msg.substring(12));
+    String phrase=expressionPhrase(selected);
+    setFace(selected,12000);speechText=phrase;speechUntil=millis()+12000;
+    lastReply=phrase;lastSound=(selected==FACE_FURIOUS||selected==FACE_MIDDLE_FINGER)?"angry":"chirp";
+    bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(phrase)+
+                "\",\"face\":\""+String(faceName(selected))+
+                "\",\"sound\":\""+jsonEscape(lastSound)+"\"}");
+    return;
+  }
+
   if(msg.startsWith("@ai-user:")){
     aiPendingQuestion=msg.substring(9);aiPendingQuestion.trim();
     if(aiPendingQuestion.length()>240)aiPendingQuestion=aiPendingQuestion.substring(0,240);
@@ -1363,15 +1506,18 @@ void handleBleCommand(String msg){
     noteUserInteraction(question);conversationsCount++;
     happiness=min(happiness+2,100);energy=max(energy-1,0);trustLevel=min(trustLevel+1,100);
     lastReply=aiReply;lastSound="curious";rememberLocal(question,aiReply);
-    speechText=aiReply;speechUntil=millis()+14000;setFace(FACE_HAPPY,10000);
+    Face responseFace=faceFromString(aiPendingEmotion);if(responseFace==FACE_NEUTRAL)responseFace=FACE_HAPPY;
+    aiPendingEmotion="neutral";
+    speechText=aiReply;speechUntil=millis()+14000;setFace(responseFace,10000);
     logToSD("USER",question);logToSD("PIXI-AI",aiReply);checkAchievements();saveLifeState();
     bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(aiReply)+
-                "\",\"face\":\"happy\",\"sound\":\"curious\"}");
+                "\",\"face\":\""+String(faceName(responseFace))+"\",\"sound\":\"curious\"}");
     bleSendLine(statusJsonLine());
     return;
   }
 
   String f="happy",sound="chirp";
+  aiPendingQuestion="";aiPendingEmotion="neutral";
   noteUserInteraction(msg);
   lastHeard=msg;
   String reply=processUserMessage(msg,f,sound);
@@ -1473,6 +1619,11 @@ void connectSavedWiFi() {
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_NAME, AP_PASS);
 
+  if(safeMode){
+    Serial.println("Modo seguro: Wi-Fi STA omitido");
+    return;
+  }
+
   if (ssid.length() > 0) {
     WiFi.begin(ssid.c_str(), pass.c_str());
     uint32_t start = millis();
@@ -1494,7 +1645,7 @@ const char WEB_PAGE[] PROGMEM = R"HTML(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Pixi V6 Local</title>
+<title>Pixi V8.5 Local</title>
 <style>
 :root{color-scheme:dark}
 *{box-sizing:border-box}
@@ -1525,7 +1676,7 @@ label{display:block;color:#a7bbd3;font-size:13px;margin-bottom:5px}
 <main>
 
 <div class="card">
-  <h1>🎀 Pixi V6</h1>
+  <h1>🎀 Pixi V8.5</h1>
   <div class="sub">LOCAL · sin IA · 2.097.152+ respuestas + 32.768 preguntas · instantaneo</div>
   <div class="status">
     <span class="badge" id="faceBadge">Cara: ...</span>
@@ -1673,7 +1824,7 @@ label{display:block;color:#a7bbd3;font-size:13px;margin-bottom:5px}
 
 <div class="card small">
   <b>Sobre el microfono:</b> Chrome puede mostrar <code>not-allowed</code> porque
-  <code>http://192.168.x.x</code> no es un contexto HTTPS seguro. V6 evita quedarse
+  <code>http://192.168.x.x</code> no es un contexto HTTPS seguro. Pixi evita quedarse
   bloqueada: cambia automaticamente al dictado del teclado.<br><br>
   Red directa: <b>PIXI-AI</b> · clave <b>pixirobot</b> · <b>192.168.4.1</b>
 </div>
@@ -2108,6 +2259,9 @@ void setupWeb() {
     json += "\"conversations\":" + String(conversationsCount) + ",";
     json += "\"games\":" + String(gamesCount) + ",";
     json += "\"touches\":" + String(touchCount) + ",";
+    json += "\"safe_mode\":" + String(safeMode?"true":"false") + ",";
+    json += "\"free_heap\":" + String(ESP.getFreeHeap()) + ",";
+    json += "\"min_free_heap\":" + String(ESP.getMinFreeHeap()) + ",";
     json += "\"ap_ip\":\"" + WiFi.softAPIP().toString() + "\",";
     json += "\"sta_connected\":" + String(WiFi.status()==WL_CONNECTED ? "true":"false") + ",";
     json += "\"sta_ip\":\"" + (WiFi.status()==WL_CONNECTED ? WiFi.localIP().toString() : String("")) + "\",";
@@ -2129,8 +2283,8 @@ void drawHeart(int x,int y,int s,uint16_t c){
 
 void drawEye(int cx,int cy,bool leftEye){
   int ew=66,eh=76;
-  if(face==FACE_SURPRISED||face==FACE_SCARED||face==FACE_EXCITED){ew=74;eh=84;}
-  if(face==FACE_SLEEPY||face==FACE_BORED)eh=46;
+  if(face==FACE_SURPRISED||face==FACE_SCARED||face==FACE_EXCITED||face==FACE_SHOCKED||face==FACE_STARRY){ew=74;eh=84;}
+  if(face==FACE_SLEEPY||face==FACE_BORED||face==FACE_UNIMPRESSED||face==FACE_DEADPAN||face==FACE_ANNOYED)eh=46;
 
   if(sleeping||blinking){
     canvas.drawLine(cx-28,cy,cx+28,cy,C_WHITE);
@@ -2138,17 +2292,19 @@ void drawEye(int cx,int cy,bool leftEye){
     return;
   }
 
-  if(face==FACE_WINK&&!leftEye){
+  if((face==FACE_WINK||face==FACE_PLAYFUL)&&!leftEye){
     canvas.drawLine(cx-26,cy,cx+26,cy,C_WHITE);
     canvas.drawLine(cx-22,cy+2,cx+22,cy+2,C_WHITE);
     return;
   }
 
   if(face==FACE_LOVE){drawHeart(cx,cy-3,24,C_PINK);return;}
+  if(face==FACE_STARRY){canvas.setTextDatum(textdatum_t::middle_center);canvas.setTextColor(C_YELLOW,C_FACE);canvas.setFont(&fonts::Font4);canvas.drawString("*",cx,cy);return;}
 
-  if(face==FACE_ROBOT){
+  if(face==FACE_ROBOT||face==FACE_GLITCH){
     canvas.drawRect(cx-32,cy-35,64,70,C_CYAN);
     canvas.fillCircle(cx+(int)(gazeX*10),cy+(int)(gazeY*9),12,C_CYAN);
+    if(face==FACE_GLITCH){canvas.drawLine(cx-35,cy-12,cx+35,cy-12,C_PINK);canvas.drawLine(cx-28,cy+18,cx+28,cy+18,C_YELLOW);}
     return;
   }
 
@@ -2157,22 +2313,26 @@ void drawEye(int cx,int cy,bool leftEye){
   canvas.fillCircle(px,py,17,C_BLACK);
   canvas.fillCircle(px-5,py-6,5,C_WHITE);
 
-  if(face==FACE_ANGRY){
+  if(face==FACE_DIZZY){canvas.drawLine(px-11,py-11,px+11,py+11,C_WHITE);canvas.drawLine(px+11,py-11,px-11,py+11,C_WHITE);}
+
+  if(face==FACE_ANGRY||face==FACE_FURIOUS||face==FACE_GRUMPY||face==FACE_MIDDLE_FINGER||face==FACE_REBEL){
     if(leftEye)canvas.fillTriangle(cx-40,cy-48,cx+40,cy-34,cx+40,cy-51,C_FACE);
     else canvas.fillTriangle(cx-40,cy-34,cx+40,cy-48,cx-40,cy-51,C_FACE);
   }
 
-  if(face==FACE_SAD||face==FACE_CRYING){
+  if(face==FACE_SAD||face==FACE_CRYING||face==FACE_POUT||face==FACE_NERVOUS){
     if(leftEye)canvas.drawLine(cx-26,cy-40,cx+22,cy-47,C_WHITE);
     else canvas.drawLine(cx-22,cy-47,cx+26,cy-40,C_WHITE);
   }
 
-  if(face==FACE_CONFUSED){
+  if(face==FACE_CONFUSED||face==FACE_SUSPICIOUS){
     if(leftEye)canvas.drawLine(cx-27,cy-45,cx+22,cy-39,C_WHITE);
     else canvas.drawLine(cx-22,cy-39,cx+27,cy-45,C_WHITE);
   }
 
-  if(face==FACE_SMUG)canvas.fillRect(cx-38,cy-42,76,22,C_FACE);
+  if(face==FACE_SMUG||face==FACE_SARCASM||face==FACE_PROUD||face==FACE_MISCHIEVOUS)canvas.fillRect(cx-38,cy-42,76,22,C_FACE);
+
+  if(face==FACE_EMBARRASSED)canvas.fillCircle(px,py,8,C_BLACK);
 
   if(face==FACE_SICK){
     canvas.drawLine(cx-18,cy-5,cx+18,cy+5,C_BLACK);
@@ -2193,36 +2353,65 @@ void drawMouth(){
       canvas.fillRect(cx-18,cy-13,36,5,C_WHITE); break;
     case FACE_SAD:
     case FACE_CRYING:
-    case FACE_ANGRY: canvas.drawArc(cx,cy+12,25,18,205,335,C_WHITE); break;
+    case FACE_POUT:
+    case FACE_NERVOUS:
+    case FACE_ANGRY:
+    case FACE_FURIOUS:
+    case FACE_GRUMPY:
+    case FACE_MIDDLE_FINGER: canvas.drawArc(cx,cy+12,25,18,205,335,C_WHITE); break;
     case FACE_SURPRISED:
     case FACE_SCARED:
+    case FACE_SHOCKED:
       canvas.fillEllipse(cx,cy,13,18,C_BLACK);
       canvas.drawEllipse(cx,cy,13,18,C_WHITE); break;
     case FACE_THINKING:
       canvas.drawLine(cx-20,cy,cx+5,cy-3,C_WHITE);
       canvas.fillCircle(cx+16,cy-6,3,C_WHITE); break;
     case FACE_LOVE: canvas.drawArc(cx,cy-5,28,22,25,155,C_PINK); break;
-    case FACE_WINK: canvas.drawArc(cx,cy-4,23,17,25,155,C_WHITE); break;
-    case FACE_CONFUSED: canvas.drawLine(cx-18,cy-2,cx+18,cy+3,C_WHITE); break;
+    case FACE_WINK:
+    case FACE_PLAYFUL: canvas.drawArc(cx,cy-4,23,17,25,155,C_WHITE); break;
+    case FACE_CONFUSED:
+    case FACE_SUSPICIOUS:
+    case FACE_EMBARRASSED: canvas.drawLine(cx-18,cy-2,cx+18,cy+3,C_WHITE); break;
     case FACE_BORED:
-    case FACE_SLEEPY: canvas.drawLine(cx-15,cy,cx+15,cy,C_WHITE); break;
-    case FACE_SICK: canvas.drawArc(cx,cy+10,22,15,205,335,C_GREEN); break;
-    case FACE_SMUG: canvas.drawArc(cx+7,cy-2,24,15,15,145,C_WHITE); break;
+    case FACE_SLEEPY:
+    case FACE_UNIMPRESSED:
+    case FACE_DEADPAN:
+    case FACE_ANNOYED: canvas.drawLine(cx-15,cy,cx+15,cy,C_WHITE); break;
+    case FACE_SICK:
+    case FACE_DIZZY: canvas.drawArc(cx,cy+10,22,15,205,335,C_GREEN); break;
+    case FACE_SMUG:
+    case FACE_SARCASM:
+    case FACE_PROUD:
+    case FACE_MISCHIEVOUS:
+    case FACE_REBEL: canvas.drawArc(cx+7,cy-2,24,15,15,145,C_WHITE); break;
+    case FACE_TONGUE: canvas.drawArc(cx,cy-4,25,18,25,155,C_WHITE);canvas.fillEllipse(cx,cy+9,12,9,C_PINK);break;
+    case FACE_GLITCH:
     case FACE_ROBOT: canvas.drawRect(cx-18,cy-8,36,16,C_CYAN); break;
     default: canvas.drawArc(cx,cy-2,20,13,30,150,C_WHITE); break;
   }
 }
 
 void drawExtras(){
-  if(face==FACE_HAPPY||face==FACE_VERY_HAPPY||face==FACE_LOVE){
+  if(face==FACE_HAPPY||face==FACE_VERY_HAPPY||face==FACE_LOVE||face==FACE_EMBARRASSED||face==FACE_HAPPY_CRY){
     canvas.fillEllipse(53,145,18,6,C_PINK);
     canvas.fillEllipse(267,145,18,6,C_PINK);
   }
 
-  if(face==FACE_CRYING){
+  if(face==FACE_CRYING||face==FACE_HAPPY_CRY){
     canvas.fillTriangle(92,124,98,143,104,124,C_CYAN);
     canvas.fillTriangle(216,124,222,143,228,124,C_CYAN);
   }
+
+  if(face==FACE_MIDDLE_FINGER){
+    canvas.fillRoundRect(246,133,34,39,8,C_YELLOW);
+    canvas.fillRoundRect(258,78,11,70,5,C_YELLOW);
+    canvas.fillRoundRect(237,141,13,25,5,C_YELLOW);
+    canvas.fillRoundRect(276,141,13,25,5,C_YELLOW);
+    canvas.setTextDatum(textdatum_t::middle_center);canvas.setTextColor(C_RED,C_FACE);canvas.setFont(&fonts::Font0);canvas.drawString("FUCK YOU",160,42);
+  }
+
+  if(face==FACE_REBEL){canvas.setTextDatum(textdatum_t::middle_center);canvas.setTextColor(C_PINK,C_FACE);canvas.drawString("NO RULES",160,42);}
 
   if(listeningMode){
     canvas.setTextDatum(textdatum_t::top_right);
@@ -2484,7 +2673,7 @@ void bootAnimation(){
   canvas.setTextDatum(textdatum_t::middle_center);
   canvas.setTextColor(C_WHITE,C_BG);
   canvas.setFont(&fonts::Font2);
-  canvas.drawString("PIXI V8.4",160,92);
+  canvas.drawString("PIXI V8.5",160,92);
   canvas.setFont(&fonts::Font0);
   canvas.setTextColor(C_PINK,C_BG);
   canvas.drawString("LIFE",160,123);
@@ -2504,6 +2693,7 @@ void bootAnimation(){
 void setup(){
   Serial.begin(115200);
   delay(150);
+  initSafeMode();
   randomSeed((uint32_t)esp_random());
 
   pinMode(LED_R,OUTPUT);
@@ -2523,23 +2713,23 @@ void setup(){
 
   bootAnimation();
   loadLifeState();
-  setupSDCard();
+  if(!safeMode)setupSDCard();
   setupWeb();
   setupBLE();
-  setupEspNow();
+  if(!safeMode)setupEspNow();
 
   nextBlinkAt=millis()+1500;
   nextLookAt=millis()+800;
   nextFaceAt=millis()+7000;
   nextSpontaneousAt=millis()+random(45000,80000);
 
-  speechText="¡Holii! Soy Pixi";
-  lastReply="¡Holii! Soy Pixi";
+  speechText=safeMode?"Modo seguro activo":"¡Holii! Soy Pixi";
+  lastReply=speechText;
   speechUntil=millis()+4500;
   setFace(FACE_HAPPY,4500);
 
   Serial.println();
-  Serial.println("PIXI V8.4 LIFE listo");
+  Serial.println("PIXI V8.5 LIFE listo");
   Serial.print("AP: ");Serial.println(AP_NAME);
   Serial.print("AP IP: ");Serial.println(WiFi.softAPIP());
 
@@ -2552,6 +2742,7 @@ void setup(){
 
 void loop(){
   server.handleClient();
+  updateSafeMode();
 
   updateBlink();
   handleTouch();

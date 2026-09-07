@@ -1,7 +1,7 @@
-PIXI V8.4 LIFE + HTTPS BLE
+PIXI V8.5 LIFE + HTTPS BLE
 =========================
 
-V8.4 incluye:
+V8.5 incluye:
 - motor local 2M+
 - memoria persistente
 - nombre y gustos
@@ -23,6 +23,13 @@ V8.4 incluye:
 - ESP-NOW para tus otras ESP32
 - pagina HTTPS lista para GitHub Pages con Whisper local
 - IA generativa local y gratuita: Gemma 3 270M rapido o Qwen2.5 0.5B, sin API key
+- respuestas de IA visibles palabra por palabra mientras se generan
+- error detallado si la IA local no puede iniciar (nunca muestra solo "undefined")
+- reconexion BLE automatica despues de autorizar PIXI una vez
+- PWA offline despues de la primera descarga completa de la app y modelos
+- reconocimiento de emociones en la pagina y el firmware
+- modo seguro tras reinicios inestables o memoria critica
+- 22 expresiones nuevas, incluidas furiosa, sarcasmo, glitch y gesto rebelde
 - microfono y TTS del telefono
 
 LINK HTTPS / MICROFONO
@@ -86,4 +93,4 @@ Si no insertas tarjeta, Pixi sigue funcionando.
 
 NOTA:
 No se puede crear por software un microfono o parlante fisico inexistente.
-Esta V8.4 usa el telefono para audio e IA. Una version futura puede usar INMP441 + parlante.
+Esta V8.5 usa el telefono para audio e IA. Una version futura puede usar INMP441 + parlante.

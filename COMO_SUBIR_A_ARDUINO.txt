@@ -1,4 +1,4 @@
-PIXI V8.4 - COMO SUBIR A LA ESP32 DESDE ARDUINO IDE
+PIXI V8.5 - COMO SUBIR A LA ESP32 DESDE ARDUINO IDE
 ================================================
 
 1. Instala en Arduino IDE:

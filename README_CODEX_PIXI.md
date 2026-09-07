@@ -1,4 +1,4 @@
-# PIXI V8.4 — Guía para Codex
+# PIXI V8.5 — Guía para Codex
 
 ## Objetivo
 
@@ -335,7 +335,32 @@ sick
 smug
 crying
 robot
+annoyed
+furious
+sarcasm
+unimpressed
+embarrassed
+proud
+playful
+dizzy
+shocked
+suspicious
+nervous
+relieved
+grumpy
+mischievous
+deadpan
+starry
+happycry
+pout
+tongue
+glitch
+middlefinger
+rebel
 ```
+
+Las expresiones fuertes o groseras solo deben mostrarse cuando el usuario las
+selecciona o envía el comando correspondiente; no deben aparecer al azar.
 
 ---
 
@@ -467,6 +492,9 @@ TX:
 ```
 
 La web HTTPS usa BLE como canal principal entre el teléfono y Pixi.
+Después de que el usuario autoriza el dispositivo una vez, la web intenta
+recuperarlo con `navigator.bluetooth.getDevices()` y reconectarlo si se corta
+la conexión. La primera autorización siempre requiere interacción del usuario.
 
 ---
 
@@ -479,7 +507,9 @@ MICRÓFONO DEL TELÉFONO
    ↓
 PÁGINA HTTPS
    ↓
-Whisper local en la página HTTPS
+reconocimiento de voz del navegador o Whisper local
+   ↓
+Gemma/Qwen local con salida progresiva
    ↓
 Bluetooth BLE
    ↓
@@ -544,8 +574,12 @@ Funciones:
 
 ```text
 conectar por BLE
+reconectar automáticamente un dispositivo ya autorizado
 pedir permiso de micrófono
 Whisper local en el navegador (WebAssembly)
+IA generativa local con texto visible mientras se genera
+errores descriptivos al cargar modelos
+PWA offline después de almacenar la app y dependencias usadas
 TTS
 enviar texto
 mostrar respuesta
@@ -556,7 +590,28 @@ cambiar personalidad
 cambiar cara
 configurar alarma
 sincronizar hora
+detectar emoción y enviarla a Pixi
+activar las 22 expresiones nuevas
 ```
+
+Los modelos grandes y sus librerías se guardan en caché durante la primera
+descarga correcta. Por eso la instalación inicial requiere Internet; luego la
+PWA puede abrirse sin conexión con los recursos que ya quedaron almacenados.
+
+---
+
+# Reconocimiento de emociones y modo seguro
+
+La página y el firmware clasifican texto como `happy`, `sad`, `angry`,
+`scared`, `surprised`, `love`, `bored` o `neutral`. La web envía `@emotion:`
+antes de la pregunta y Pixi conserva esa cara mientras llega la respuesta.
+
+El firmware registra reinicios causados por pánico o watchdog. Al detectar tres
+arranques inestables entra en modo seguro: omite microSD, ESP-NOW, conexión Wi-Fi
+de estación y conversación espontánea, pero conserva pantalla, panel local y
+BLE para poder diagnosticarlo. También entra en modo seguro si la memoria libre
+cae por debajo del umbral crítico. Tras 30 segundos de arranque estable limpia
+el contador guardado en NVS.
 
 ---
 

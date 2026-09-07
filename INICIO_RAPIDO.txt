@@ -1,4 +1,4 @@
-PIXI V8.4 - INICIO RAPIDO
+PIXI V8.5 - INICIO RAPIDO
 
 1. Arduino IDE: instala esp32 by Espressif Systems.
 2. Instala LovyanGFX.
