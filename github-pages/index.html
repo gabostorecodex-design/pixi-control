@@ -7,201 +7,90 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Pixi Voice</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#070b11;color:#eef6ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
-main{max-width:760px;margin:auto;padding:18px}.card{background:#111923;border:1px solid #22334a;border-radius:22px;padding:17px;margin-bottom:14px;box-shadow:0 10px 35px #0006}
-h1{margin:0}.sub{color:#91a6c0}.status{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.pill{padding:7px 10px;border-radius:999px;background:#1a293c}
-button,input,select{border:0;border-radius:15px;padding:14px;font-size:16px}button{background:#1e73e8;color:#fff;font-weight:750}
-button.mic{width:100%;font-size:22px;padding:20px;background:#d82f64}.row{display:flex;gap:9px}.row>*{flex:1}
-input,select{width:100%;background:#0a1018;color:white;border:1px solid #2a3c56}.bubble{padding:12px;border-radius:15px;background:#0b111a;margin-top:10px}
-.small{font-size:12px;color:#8ba0bb}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(max-width:560px){.row{flex-direction:column}}
+*{box-sizing:border-box}body{margin:0;background:#070b11;color:#eef6ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:760px;margin:auto;padding:18px}.card{background:#111923;border:1px solid #22334a;border-radius:22px;padding:17px;margin-bottom:14px;box-shadow:0 10px 35px #0006}h1{margin:0}.sub{color:#91a6c0}.status{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.pill{padding:7px 10px;border-radius:999px;background:#1a293c}button,input,select{border:0;border-radius:15px;padding:14px;font-size:16px}button{background:#1e73e8;color:#fff;font-weight:750}button:disabled{opacity:.55}button.mic{width:100%;font-size:22px;padding:20px;background:#d82f64}.row{display:flex;gap:9px}.row>*{flex:1}input,select{width:100%;background:#0a1018;color:white;border:1px solid #2a3c56}.bubble{padding:12px;border-radius:15px;background:#0b111a;margin-top:10px}.small{font-size:12px;color:#8ba0bb}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.progress{height:8px;background:#0a1018;border-radius:99px;overflow:hidden;margin-top:8px}.progress>i{display:block;height:100%;width:0;background:#1e73e8;transition:width .2s}@media(max-width:560px){.row{flex-direction:column}}
 </style>
 </head>
 <body><main>
-<div class="card"><h1>🎀 Pixi Voice</h1><div class="sub">HTTPS + voz local cuando el navegador lo permite + Bluetooth</div>
-<div class="status"><span class="pill" id="btState">BLE: desconectado</span><span class="pill" id="mood">Pixi: --</span><span class="pill" id="clock">--:--</span></div></div>
-
+<div class="card"><h1>🎀 Pixi Voice</h1><div class="sub">Micrófono local con Whisper + Bluetooth</div><div class="status"><span class="pill" id="btState">BLE: desconectado</span><span class="pill" id="mood">Pixi: --</span><span class="pill" id="clock">--:--</span></div></div>
 <div class="card"><button onclick="connectPixi()">🔵 CONECTAR A PIXI</button><p class="small">En Android Chrome elige el dispositivo <b>PIXI</b>.</p></div>
-
-<div class="card"><button id="micBtn" class="mic" onclick="talk()">🎙️ TOCA Y HABLA</button>
-<div class="bubble"><b>Tu:</b> <span id="heard">...</span></div><div class="bubble"><b>Pixi:</b> <span id="reply">...</span></div><p id="micHelp" class="small"></p></div>
-
+<div class="card"><button id="micBtn" class="mic" onclick="talk()">🎙️ TOCA Y HABLA</button><div class="bubble"><b>Tu:</b> <span id="heard">...</span></div><div class="bubble"><b>Pixi:</b> <span id="reply">...</span></div><p id="micHelp" class="small">La primera vez descargará el modelo de voz local. Después queda guardado en la caché del navegador.</p><div class="progress"><i id="modelProgress"></i></div></div>
 <div class="card"><h3>⌨️ Escribir</h3><div class="row"><input id="txt" placeholder="Escribe algo para Pixi"><button onclick="sendText()">Enviar</button></div></div>
-
-<div class="card"><h3>🎀 Voz</h3><div class="row"><select id="voice"></select><select id="preset" onchange="presetVoice(this.value)">
-<option value="cute">Tierna</option><option value="tiny">Mini robot</option><option value="soft">Suave</option><option value="sleepy">Dormidita</option></select></div>
-<p class="small">Tono</p><input id="pitch" type="range" min=".7" max="2" step=".05" value="1.4">
-<p class="small">Velocidad</p><input id="rate" type="range" min=".65" max="1.5" step=".05" value="1.05">
-<br><br><button onclick="speak('¡Holii! Soy Pixi. Pi pi.','happy')">🔊 Probar voz</button></div>
-
-<div class="card"><h3>🧠 Perfil</h3><div class="row"><input id="name" placeholder="Tu nombre"><select id="personality">
-<option>tierna</option><option>juguetona</option><option>timida</option><option>traviesa</option><option>curiosa</option><option>dormilona</option>
-</select></div><br><button onclick="saveProfile()">Guardar en Pixi</button></div>
-
-<div class="card"><h3>😊 Caras</h3><div class="grid">
-<button onclick="cmd('@face:happy')">😊 Feliz</button><button onclick="cmd('@face:love')">😍 Cariñosa</button>
-<button onclick="cmd('@face:thinking')">🤔 Pensando</button><button onclick="cmd('@face:angry')">😠 Molesta</button>
-<button onclick="cmd('@face:sleepy')">😴 Cansada</button><button onclick="cmd('@face:robot')">🤖 Robot</button>
-</div></div>
-
+<div class="card"><h3>🎀 Voz</h3><div class="row"><select id="voice"></select><select id="preset" onchange="presetVoice(this.value)"><option value="cute">Tierna</option><option value="tiny">Mini robot</option><option value="soft">Suave</option><option value="sleepy">Dormidita</option></select></div><p class="small">Tono</p><input id="pitch" type="range" min=".7" max="2" step=".05" value="1.4"><p class="small">Velocidad</p><input id="rate" type="range" min=".65" max="1.5" step=".05" value="1.05"><br><br><button onclick="speak('¡Holii! Soy Pixi. Pi pi.')">🔊 Probar voz</button></div>
+<div class="card"><h3>🧠 Perfil</h3><div class="row"><input id="name" placeholder="Tu nombre"><select id="personality"><option>tierna</option><option>juguetona</option><option>timida</option><option>traviesa</option><option>curiosa</option><option>dormilona</option></select></div><br><button onclick="saveProfile()">Guardar en Pixi</button></div>
+<div class="card"><h3>😊 Caras</h3><div class="grid"><button onclick="cmd('@face:happy')">😊 Feliz</button><button onclick="cmd('@face:love')">😍 Cariñosa</button><button onclick="cmd('@face:thinking')">🤔 Pensando</button><button onclick="cmd('@face:angry')">😠 Molesta</button><button onclick="cmd('@face:sleepy')">😴 Cansada</button><button onclick="cmd('@face:robot')">🤖 Robot</button></div></div>
 <div class="card"><h3>⏰ Alarma</h3><div class="row"><input id="alarm" type="time"><input id="alarmMsg" placeholder="Mensaje"></div><br><button onclick="saveAlarm()">Guardar alarma</button></div>
-
-<div class="card small">Esta pagina intenta reconocimiento de voz local primero. Si el navegador no tiene paquete local, prueba el servicio online; si falla, cambia al dictado del teclado. BLE comunica el telefono con Pixi.</div>
+<div class="card small">El audio del botón principal se transcribe en el propio navegador con Whisper. Ya no usa SpeechRecognition de Chrome, así que evita el error <b>network</b>. La primera carga del modelo requiere Internet; después el navegador puede reutilizarlo desde caché.</div>
 </main>
 <script>
 const SERVICE='6e400001-b5a3-f393-e0a9-e50e24dcca9e',RX='6e400002-b5a3-f393-e0a9-e50e24dcca9e',TX='6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 let dev,rx,tx,rxText='',voices=[];const dec=new TextDecoder();
+let whisper=null,whisperLoading=null,recorder=null,recStream=null,recChunks=[],recording=false;
 
-function loadVoices(){voices=speechSynthesis.getVoices();voice.innerHTML='';let best=0;voices.forEach((v,i)=>{const o=document.createElement('option');o.value=i;o.textContent=v.name+' · '+v.lang;voice.appendChild(o);if((v.lang||'').toLowerCase().startsWith('es'))best=i});voice.value=best}
+function $(id){return document.getElementById(id)}
+function loadVoices(){voices=speechSynthesis.getVoices();$('voice').innerHTML='';let best=0;voices.forEach((v,i)=>{const o=document.createElement('option');o.value=i;o.textContent=v.name+' · '+v.lang;$('voice').appendChild(o);if((v.lang||'').toLowerCase().startsWith('es'))best=i});$('voice').value=best}
 speechSynthesis.onvoiceschanged=loadVoices;loadVoices();
-
-function presetVoice(v){if(v==='cute'){pitch.value=1.4;rate.value=1.05}if(v==='tiny'){pitch.value=1.6;rate.value=1.12}if(v==='soft'){pitch.value=1.2;rate.value=.92}if(v==='sleepy'){pitch.value=1.05;rate.value=.78}}
+function presetVoice(v){if(v==='cute'){$('pitch').value=1.4;$('rate').value=1.05}if(v==='tiny'){$('pitch').value=1.6;$('rate').value=1.12}if(v==='soft'){$('pitch').value=1.2;$('rate').value=.92}if(v==='sleepy'){$('pitch').value=1.05;$('rate').value=.78}}
 function chirp(){try{const AC=window.AudioContext||window.webkitAudioContext,ac=new AC(),g=ac.createGain(),o=ac.createOscillator();g.gain.value=.04;g.connect(ac.destination);o.frequency.value=820;o.connect(g);o.start();o.stop(ac.currentTime+.08);setTimeout(()=>ac.close(),250)}catch(e){}}
-function speak(t,sound='chirp'){if(!('speechSynthesis'in window))return;chirp();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t),i=parseInt(voice.value||'0');if(voices[i])u.voice=voices[i];u.lang=(u.voice&&u.voice.lang)||'es-CL';u.pitch=parseFloat(pitch.value);u.rate=parseFloat(rate.value);setTimeout(()=>speechSynthesis.speak(u),100)}
+function speak(t){if(!('speechSynthesis'in window))return;chirp();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t),i=parseInt($('voice').value||'0');if(voices[i])u.voice=voices[i];u.lang=(u.voice&&u.voice.lang)||'es-CL';u.pitch=parseFloat($('pitch').value);u.rate=parseFloat($('rate').value);setTimeout(()=>speechSynthesis.speak(u),100)}
 
-async function connectPixi(){
-  if(!navigator.bluetooth){alert('Web Bluetooth no disponible. Prueba Chrome en Android.');return}
-  dev=await navigator.bluetooth.requestDevice({filters:[{services:[SERVICE]}]});
-  dev.addEventListener('gattserverdisconnected',()=>btState.textContent='BLE: desconectado');
-  const g=await dev.gatt.connect(),s=await g.getPrimaryService(SERVICE);
-  rx=await s.getCharacteristic(RX);tx=await s.getCharacteristic(TX);await tx.startNotifications();tx.addEventListener('characteristicvaluechanged',onNotify);
-  btState.textContent='BLE: PIXI conectada';await cmd('@status');await sendTime();
-}
-function onNotify(e){
-  rxText+=dec.decode(e.target.value,{stream:true});let p;
-  while((p=rxText.indexOf('\n'))>=0){
-    const line=rxText.slice(0,p);rxText=rxText.slice(p+1);if(!line.trim())continue;
-    try{const j=JSON.parse(line);
-      if(j.type==='reply'){reply.textContent=j.reply;speak(j.reply,j.sound||'chirp')}
-      if(j.type==='status'){name.value=j.name||'';personality.value=j.personality||'tierna';clock.textContent=j.clock||'--:--';
-        mood.textContent='Pixi: '+(j.irritation>=70?'😠 molesta':j.boredom>=70?'😑 aburrida':j.energy<35?'😴 cansada':'😊 tranquila')}
-    }catch(err){}
-  }
-}
-async function writeLine(line){
-  if(!rx){alert('Primero conecta a PIXI por Bluetooth.');return}
-  const data=new TextEncoder().encode(line+'\n');
-  for(let i=0;i<data.length;i+=18){const part=data.slice(i,i+18);if(rx.writeValueWithoutResponse)await rx.writeValueWithoutResponse(part);else await rx.writeValue(part);await new Promise(r=>setTimeout(r,8))}
-}
+async function connectPixi(){try{if(!navigator.bluetooth){alert('Web Bluetooth no disponible. Prueba Chrome en Android o Edge/Chrome en PC.');return}dev=await navigator.bluetooth.requestDevice({filters:[{services:[SERVICE]}]});dev.addEventListener('gattserverdisconnected',()=>$('btState').textContent='BLE: desconectado');const g=await dev.gatt.connect(),s=await g.getPrimaryService(SERVICE);rx=await s.getCharacteristic(RX);tx=await s.getCharacteristic(TX);await tx.startNotifications();tx.addEventListener('characteristicvaluechanged',onNotify);$('btState').textContent='BLE: PIXI conectada';await cmd('@status');await sendTime()}catch(e){$('btState').textContent='BLE: error';alert('No pude conectar con PIXI: '+e.message)}}
+function onNotify(e){rxText+=dec.decode(e.target.value,{stream:true});let p;while((p=rxText.indexOf('\n'))>=0){const line=rxText.slice(0,p);rxText=rxText.slice(p+1);if(!line.trim())continue;try{const j=JSON.parse(line);if(j.type==='reply'){$('reply').textContent=j.reply;speak(j.reply)}if(j.type==='status'){$('name').value=j.name||'';$('personality').value=j.personality||'tierna';$('clock').textContent=j.clock||'--:--';$('mood').textContent='Pixi: '+(j.irritation>=70?'😠 molesta':j.boredom>=70?'😑 aburrida':j.energy<35?'😴 cansada':'😊 tranquila')}}catch(err){}}}
+async function writeLine(line){if(!rx){$('micHelp').textContent='Texto reconocido. Ahora conecta a PIXI por Bluetooth para enviárselo.';return false}const data=new TextEncoder().encode(line+'\n');for(let i=0;i<data.length;i+=18){const part=data.slice(i,i+18);if(rx.writeValueWithoutResponse)await rx.writeValueWithoutResponse(part);else await rx.writeValue(part);await new Promise(r=>setTimeout(r,8))}return true}
 async function cmd(c){return writeLine(c)}
-async function sendText(){const t=txt.value.trim();if(!t)return;heard.textContent=t;txt.value='';await writeLine(t)}
-txt.addEventListener('keydown',e=>{if(e.key==='Enter')sendText()});
+async function sendText(){const t=$('txt').value.trim();if(!t)return;$('heard').textContent=t;$('txt').value='';await writeLine(t)}
+$('txt').addEventListener('keydown',e=>{if(e.key==='Enter')sendText()});
 
-async function requestMicPermission(){
-  try{
-    const s=await navigator.mediaDevices.getUserMedia({audio:true});
-    s.getTracks().forEach(t=>t.stop());
-    return true;
-  }catch(e){
-    micHelp.textContent='No pude obtener permiso del microfono: '+e.message;
-    return false;
-  }
+function progressText(info){try{if(info && typeof info.progress==='number'){const p=Math.max(0,Math.min(100,info.progress));$('modelProgress').style.width=p+'%';$('micHelp').textContent='Preparando voz local… '+Math.round(p)+'%'}}catch(e){}}
+async function ensureWhisper(){
+ if(whisper)return whisper;
+ if(whisperLoading)return whisperLoading;
+ whisperLoading=(async()=>{
+   $('micBtn').disabled=true;$('micBtn').textContent='🧠 PREPARANDO VOZ LOCAL…';$('micHelp').textContent='Primera vez: descargando Whisper. Puede tardar varios minutos según tu Internet.';
+   const mod=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+   whisper=await mod.pipeline('automatic-speech-recognition','onnx-community/whisper-tiny',{device:'wasm',dtype:'q8',progress_callback:progressText});
+   $('modelProgress').style.width='100%';$('micHelp').textContent='✅ Voz local lista. Toca el botón y habla.';$('micBtn').disabled=false;$('micBtn').textContent='🎙️ TOCA Y HABLA';
+   return whisper;
+ })().catch(e=>{whisperLoading=null;$('micBtn').disabled=false;$('micBtn').textContent='🎙️ TOCA Y HABLA';$('micHelp').textContent='No pude cargar el modelo local: '+e.message;throw e});
+ return whisperLoading;
 }
 
-async function getOnDeviceRecognition(){
-  const NativeSR=window.SpeechRecognition;
-  if(!NativeSR || typeof NativeSR.available!=='function') return null;
-
-  const langs=['es-CL','es-ES'];
-  for(const lang of langs){
-    try{
-      micHelp.textContent='Comprobando reconocimiento local '+lang+'...';
-      let status;
-      try{
-        status=await NativeSR.available({langs:[lang],processLocally:true,quality:'dictation'});
-      }catch(e){
-        status=await NativeSR.available({langs:[lang],processLocally:true});
-      }
-
-      if(status==='downloadable' || status==='downloading'){
-        micHelp.textContent='Descargando paquete de voz '+lang+'...';
-        let ok=false;
-        try{
-          ok=await NativeSR.install({langs:[lang],processLocally:true,quality:'dictation'});
-        }catch(e){
-          try{ok=await NativeSR.install({langs:[lang],processLocally:true})}catch(e2){}
-        }
-        if(!ok) continue;
-      }else if(status!=='available'){
-        continue;
-      }
-
-      const r=new NativeSR();
-      r.lang=lang;
-      r.interimResults=false;
-      r.maxAlternatives=1;
-      r.continuous=false;
-      if('processLocally' in r) r.processLocally=true;
-      r.__pixiLocal=true;
-      return r;
-    }catch(e){}
-  }
-  return null;
+async function startRecording(){
+ try{
+   await ensureWhisper();
+   recStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+   recChunks=[];
+   recorder=new MediaRecorder(recStream);
+   recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data)};
+   recorder.onstop=transcribeRecording;
+   recorder.start();recording=true;
+   $('micBtn').textContent='⏹ DETENER Y ENVIAR';$('micHelp').textContent='🎙️ Grabando… habla normal y vuelve a tocar el botón cuando termines.';
+ }catch(e){recording=false;if(recStream)recStream.getTracks().forEach(t=>t.stop());$('micBtn').disabled=false;$('micBtn').textContent='🎙️ TOCA Y HABLA';$('micHelp').textContent='No pude usar el micrófono: '+e.message}
 }
+function stopRecording(){if(recorder&&recorder.state==='recording'){recording=false;$('micBtn').disabled=true;$('micBtn').textContent='🧠 ENTENDIENDO…';$('micHelp').textContent='Procesando tu voz localmente…';recorder.stop()}}
+async function talk(){if(recording)stopRecording();else startRecording()}
 
-function keyboardFallback(msg){
-  micHelp.innerHTML=(msg?msg+'<br>':'')+'Usa el microfono del teclado Android/Gboard: toca el campo de texto, pulsa 🎙️ en el teclado y luego Enviar.';
-  txt.focus();
-  txt.scrollIntoView({behavior:'smooth',block:'center'});
+async function transcribeRecording(){
+ try{
+   if(recStream)recStream.getTracks().forEach(t=>t.stop());
+   const type=(recorder&&recorder.mimeType)||'audio/webm';
+   const blob=new Blob(recChunks,{type});
+   if(blob.size<1000)throw new Error('La grabación quedó vacía.');
+   const buf=await blob.arrayBuffer();
+   const AC=window.AudioContext||window.webkitAudioContext;
+   const ac=new AC({sampleRate:16000});
+   const decoded=await ac.decodeAudioData(buf.slice(0));
+   let audio;
+   if(decoded.numberOfChannels===1){audio=new Float32Array(decoded.getChannelData(0))}else{const n=decoded.length;audio=new Float32Array(n);for(let ch=0;ch<decoded.numberOfChannels;ch++){const d=decoded.getChannelData(ch);for(let i=0;i<n;i++)audio[i]+=d[i]/decoded.numberOfChannels}}
+   await ac.close();
+   const out=await whisper(audio,{language:'spanish',task:'transcribe',chunk_length_s:20,stride_length_s:3});
+   const t=((out&&out.text)||'').trim();
+   if(!t){$('heard').textContent='(no entendí)';$('micHelp').textContent='No detecté palabras claras. Prueba acercándote al micrófono.'}
+   else{$('heard').textContent=t;const sent=await writeLine(t);$('micHelp').textContent=sent?'✅ Entendido y enviado a Pixi.':'✅ Entendido. Conecta a PIXI para enviar el texto.'}
+ }catch(e){$('micHelp').textContent='Error procesando la voz: '+e.message}
+ finally{$('micBtn').disabled=false;$('micBtn').textContent='🎙️ TOCA Y HABLA';recChunks=[];recorder=null;recStream=null}
 }
-
-function configureRecognition(r){
-  r.interimResults=false;
-  r.maxAlternatives=1;
-  r.continuous=false;
-  micBtn.textContent='🔴 ESCUCHANDO...';
-  micHelp.textContent=r.__pixiLocal?'🎙️ Escuchando LOCAL, sin servidor de voz...':'🎙️ Escuchando...';
-
-  r.onresult=async e=>{
-    const t=e.results[0][0].transcript;
-    heard.textContent=t;
-    micHelp.textContent=r.__pixiLocal?'✅ Voz reconocida localmente.':'✅ Voz reconocida.';
-    await writeLine(t);
-  };
-
-  r.onerror=e=>{
-    if(e.error==='network'){
-      keyboardFallback('El servicio de voz online del navegador fallo (network).');
-    }else if(e.error==='language-not-supported' || e.error==='language-unavailable'){
-      keyboardFallback('No hay paquete local de español disponible en este navegador.');
-    }else if(e.error==='not-allowed' || e.error==='service-not-allowed'){
-      keyboardFallback('El navegador bloqueo el reconocimiento de voz.');
-    }else{
-      micHelp.textContent='Error de voz: '+e.error;
-    }
-  };
-
-  r.onend=()=>micBtn.textContent='🎙️ TOCA Y HABLA';
-}
-
-async function talk(){
-  if(!await requestMicPermission()) return;
-
-  // 1) Primero intentamos reconocimiento EN EL TELEFONO.
-  // Esto evita el error "network" cuando Chrome/Brave no puede usar
-  // su servicio remoto. Los paquetes locales son experimentales y
-  // dependen del navegador/dispositivo.
-  const local=await getOnDeviceRecognition();
-  if(local){
-    configureRecognition(local);
-    try{local.start();return}catch(e){}
-  }
-
-  // 2) Si el telefono no ofrece reconocimiento local, intentamos el
-  // servicio normal del navegador.
-  const CloudSR=window.webkitSpeechRecognition||window.SpeechRecognition;
-  if(!CloudSR){
-    keyboardFallback('Este navegador no incluye reconocimiento de voz web.');
-    return;
-  }
-
-  const r=new CloudSR();
-  r.lang='es-CL';
-  r.__pixiLocal=false;
-  configureRecognition(r);
-  try{r.start()}catch(e){keyboardFallback('No pude iniciar el reconocimiento de voz.')}
-}
-async function saveProfile(){await cmd('@name:'+name.value.trim());await cmd('@personality:'+personality.value);await cmd('@status')}
+async function saveProfile(){await cmd('@name:'+$('name').value.trim());await cmd('@personality:'+$('personality').value);await cmd('@status')}
 async function sendTime(){await cmd('@time:'+Math.floor(Date.now()/1000)+':'+(-new Date().getTimezoneOffset()))}
-async function saveAlarm(){if(!alarm.value)return;const[h,m]=alarm.value.split(':');await cmd('@alarm:'+h+':'+m+':'+(alarmMsg.value||'¡Pi! Tienes una alarma.'))}
+async function saveAlarm(){if(!$('alarm').value)return;const[h,m]=$('alarm').value.split(':');await cmd('@alarm:'+h+':'+m+':'+($('alarmMsg').value||'¡Pi! Tienes una alarma.'))}
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script></body></html>
