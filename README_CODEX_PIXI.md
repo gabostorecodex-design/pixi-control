@@ -11,11 +11,11 @@ Pixi debe funcionar principalmente **en local**, sin Gemini ni APIs externas par
 - panel de control
 - interfaz HTTPS para permisos del navegador
 
-La web HTTPS también ofrece IA generativa local con `Qwen2.5-0.5B-Instruct` en WebGPU. Es gratuita, no requiere API key y mantiene el motor del ESP32 como respaldo cuando el modelo no está disponible.
+La web HTTPS ofrece IA generativa local en WebGPU. Usa `Gemma 3 270M Instruct` como modo rápido predeterminado y conserva `Qwen2.5-0.5B-Instruct` como opción de mayor calidad. Ambos son gratuitos, no requieren API key y mantienen el motor del ESP32 como respaldo cuando el modelo no está disponible.
 
 La IA no se ejecuta dentro de la ESP32. Chrome o Edge en el teléfono descarga el modelo cuantizado la primera vez, genera una respuesta y la envía por BLE. Se necesita WebGPU y suficiente memoria en el teléfono; si falla, la web reenvía la pregunta al motor local del firmware.
 
-Para reducir el consumo de memoria en celulares, la web usa el reconocimiento de voz del navegador mientras la IA está activa y libera Whisper antes de cargar Qwen. No mantener ambos modelos cargados simultáneamente.
+Para reducir el consumo de memoria en celulares, la web usa el reconocimiento de voz del navegador mientras la IA está activa y libera Whisper antes de cargar el modelo generativo. No mantener ambos modelos cargados simultáneamente.
 
 Prioridades:
 

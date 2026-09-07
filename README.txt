@@ -22,7 +22,7 @@ V8.4 incluye:
 - BLE
 - ESP-NOW para tus otras ESP32
 - pagina HTTPS lista para GitHub Pages con Whisper local
-- IA generativa Qwen2.5 local y gratuita en el navegador, sin API key
+- IA generativa local y gratuita: Gemma 3 270M rapido o Qwen2.5 0.5B, sin API key
 - microfono y TTS del telefono
 
 LINK HTTPS / MICROFONO
