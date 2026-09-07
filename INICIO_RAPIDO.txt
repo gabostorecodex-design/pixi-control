@@ -1,0 +1,32 @@
+PIXI V8 - INICIO RAPIDO
+
+1. Arduino IDE: instala esp32 by Espressif Systems.
+2. Instala LovyanGFX.
+4. Abre PIXI_CYD_V8_LIFE_HTTPS_BLE.ino.
+5. Placa: ESP32 Dev Module.
+6. Flash 4MB, PSRAM Disabled, Upload 115200.
+7. SUBIR.
+
+LOCAL:
+Wi-Fi PIXI-AI
+Clave pixirobot
+192.168.4.1
+
+HTTPS:
+El proyecto trae github-pages/ y workflow para GitHub Pages.
+Repo sugerido: pixi-control
+URL esperada:
+https://TU_USUARIO.github.io/pixi-control/
+
+En Android Chrome:
+1. Abre la URL HTTPS.
+2. Pulsa CONECTAR A PIXI.
+3. Elige PIXI por Bluetooth.
+4. Pulsa TOCA Y HABLA.
+5. Acepta el permiso del microfono.
+
+
+V8.1:
+NO instales NimBLE-Arduino.
+Bluetooth BLE usa la libreria incluida con esp32 by Espressif Systems.
+Solo necesitas LovyanGFX como libreria externa.

@@ -1,0 +1,9 @@
+{
+  "name": "Pixi Voice",
+  "short_name": "Pixi",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#070b11",
+  "theme_color": "#101722",
+  "description": "Pixi HTTPS + BLE"
+}

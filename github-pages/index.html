@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101722">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Pixi Voice</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#070b11;color:#eef6ff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:760px;margin:auto;padding:18px}.card{background:#111923;border:1px solid #22334a;border-radius:22px;padding:17px;margin-bottom:14px;box-shadow:0 10px 35px #0006}
+h1{margin:0}.sub{color:#91a6c0}.status{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.pill{padding:7px 10px;border-radius:999px;background:#1a293c}
+button,input,select{border:0;border-radius:15px;padding:14px;font-size:16px}button{background:#1e73e8;color:#fff;font-weight:750}
+button.mic{width:100%;font-size:22px;padding:20px;background:#d82f64}.row{display:flex;gap:9px}.row>*{flex:1}
+input,select{width:100%;background:#0a1018;color:white;border:1px solid #2a3c56}.bubble{padding:12px;border-radius:15px;background:#0b111a;margin-top:10px}
+.small{font-size:12px;color:#8ba0bb}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(max-width:560px){.row{flex-direction:column}}
+</style>
+</head>
+<body><main>
+<div class="card"><h1>🎀 Pixi Voice</h1><div class="sub">HTTPS para microfono + Bluetooth</div>
+<div class="status"><span class="pill" id="btState">BLE: desconectado</span><span class="pill" id="mood">Pixi: --</span><span class="pill" id="clock">--:--</span></div></div>
+
+<div class="card"><button onclick="connectPixi()">🔵 CONECTAR A PIXI</button><p class="small">En Android Chrome elige el dispositivo <b>PIXI</b>.</p></div>
+
+<div class="card"><button id="micBtn" class="mic" onclick="talk()">🎙️ TOCA Y HABLA</button>
+<div class="bubble"><b>Tu:</b> <span id="heard">...</span></div><div class="bubble"><b>Pixi:</b> <span id="reply">...</span></div><p id="micHelp" class="small"></p></div>
+
+<div class="card"><h3>⌨️ Escribir</h3><div class="row"><input id="txt" placeholder="Escribe algo para Pixi"><button onclick="sendText()">Enviar</button></div></div>
+
+<div class="card"><h3>🎀 Voz</h3><div class="row"><select id="voice"></select><select id="preset" onchange="presetVoice(this.value)">
+<option value="cute">Tierna</option><option value="tiny">Mini robot</option><option value="soft">Suave</option><option value="sleepy">Dormidita</option></select></div>
+<p class="small">Tono</p><input id="pitch" type="range" min=".7" max="2" step=".05" value="1.4">
+<p class="small">Velocidad</p><input id="rate" type="range" min=".65" max="1.5" step=".05" value="1.05">
+<br><br><button onclick="speak('¡Holii! Soy Pixi. Pi pi.','happy')">🔊 Probar voz</button></div>
+
+<div class="card"><h3>🧠 Perfil</h3><div class="row"><input id="name" placeholder="Tu nombre"><select id="personality">
+<option>tierna</option><option>juguetona</option><option>timida</option><option>traviesa</option><option>curiosa</option><option>dormilona</option>
+</select></div><br><button onclick="saveProfile()">Guardar en Pixi</button></div>
+
+<div class="card"><h3>😊 Caras</h3><div class="grid">
+<button onclick="cmd('@face:happy')">😊 Feliz</button><button onclick="cmd('@face:love')">😍 Cariñosa</button>
+<button onclick="cmd('@face:thinking')">🤔 Pensando</button><button onclick="cmd('@face:angry')">😠 Molesta</button>
+<button onclick="cmd('@face:sleepy')">😴 Cansada</button><button onclick="cmd('@face:robot')">🤖 Robot</button>
+</div></div>
+
+<div class="card"><h3>⏰ Alarma</h3><div class="row"><input id="alarm" type="time"><input id="alarmMsg" placeholder="Mensaje"></div><br><button onclick="saveAlarm()">Guardar alarma</button></div>
+
+<div class="card small">Esta pagina usa HTTPS para pedir el microfono y BLE para hablar con Pixi. No necesita hacer fetch HTTP a 192.168.x.x.</div>
+</main>
+<script>
+const SERVICE='6e400001-b5a3-f393-e0a9-e50e24dcca9e',RX='6e400002-b5a3-f393-e0a9-e50e24dcca9e',TX='6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+let dev,rx,tx,rxText='',voices=[];const dec=new TextDecoder();
+
+function loadVoices(){voices=speechSynthesis.getVoices();voice.innerHTML='';let best=0;voices.forEach((v,i)=>{const o=document.createElement('option');o.value=i;o.textContent=v.name+' · '+v.lang;voice.appendChild(o);if((v.lang||'').toLowerCase().startsWith('es'))best=i});voice.value=best}
+speechSynthesis.onvoiceschanged=loadVoices;loadVoices();
+
+function presetVoice(v){if(v==='cute'){pitch.value=1.4;rate.value=1.05}if(v==='tiny'){pitch.value=1.6;rate.value=1.12}if(v==='soft'){pitch.value=1.2;rate.value=.92}if(v==='sleepy'){pitch.value=1.05;rate.value=.78}}
+function chirp(){try{const AC=window.AudioContext||window.webkitAudioContext,ac=new AC(),g=ac.createGain(),o=ac.createOscillator();g.gain.value=.04;g.connect(ac.destination);o.frequency.value=820;o.connect(g);o.start();o.stop(ac.currentTime+.08);setTimeout(()=>ac.close(),250)}catch(e){}}
+function speak(t,sound='chirp'){if(!('speechSynthesis'in window))return;chirp();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t),i=parseInt(voice.value||'0');if(voices[i])u.voice=voices[i];u.lang=(u.voice&&u.voice.lang)||'es-CL';u.pitch=parseFloat(pitch.value);u.rate=parseFloat(rate.value);setTimeout(()=>speechSynthesis.speak(u),100)}
+
+async function connectPixi(){
+  if(!navigator.bluetooth){alert('Web Bluetooth no disponible. Prueba Chrome en Android.');return}
+  dev=await navigator.bluetooth.requestDevice({filters:[{services:[SERVICE]}]});
+  dev.addEventListener('gattserverdisconnected',()=>btState.textContent='BLE: desconectado');
+  const g=await dev.gatt.connect(),s=await g.getPrimaryService(SERVICE);
+  rx=await s.getCharacteristic(RX);tx=await s.getCharacteristic(TX);await tx.startNotifications();tx.addEventListener('characteristicvaluechanged',onNotify);
+  btState.textContent='BLE: PIXI conectada';await cmd('@status');await sendTime();
+}
+function onNotify(e){
+  rxText+=dec.decode(e.target.value,{stream:true});let p;
+  while((p=rxText.indexOf('\n'))>=0){
+    const line=rxText.slice(0,p);rxText=rxText.slice(p+1);if(!line.trim())continue;
+    try{const j=JSON.parse(line);
+      if(j.type==='reply'){reply.textContent=j.reply;speak(j.reply,j.sound||'chirp')}
+      if(j.type==='status'){name.value=j.name||'';personality.value=j.personality||'tierna';clock.textContent=j.clock||'--:--';
+        mood.textContent='Pixi: '+(j.irritation>=70?'😠 molesta':j.boredom>=70?'😑 aburrida':j.energy<35?'😴 cansada':'😊 tranquila')}
+    }catch(err){}
+  }
+}
+async function writeLine(line){
+  if(!rx){alert('Primero conecta a PIXI por Bluetooth.');return}
+  const data=new TextEncoder().encode(line+'\n');
+  for(let i=0;i<data.length;i+=18){const part=data.slice(i,i+18);if(rx.writeValueWithoutResponse)await rx.writeValueWithoutResponse(part);else await rx.writeValue(part);await new Promise(r=>setTimeout(r,8))}
+}
+async function cmd(c){return writeLine(c)}
+async function sendText(){const t=txt.value.trim();if(!t)return;heard.textContent=t;txt.value='';await writeLine(t)}
+txt.addEventListener('keydown',e=>{if(e.key==='Enter')sendText()});
+
+async function talk(){
+  try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}catch(e){micHelp.textContent='No pude obtener permiso: '+e.message;return}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){micHelp.textContent='Sin reconocimiento de voz. Usa el dictado del teclado.';txt.focus();return}
+  const r=new SR();r.lang='es-CL';r.interimResults=false;r.maxAlternatives=1;micBtn.textContent='🔴 ESCUCHANDO...';
+  r.onresult=async e=>{const t=e.results[0][0].transcript;heard.textContent=t;await writeLine(t)};
+  r.onerror=e=>micHelp.textContent='Error de voz: '+e.error;r.onend=()=>micBtn.textContent='🎙️ TOCA Y HABLA';r.start();
+}
+async function saveProfile(){await cmd('@name:'+name.value.trim());await cmd('@personality:'+personality.value);await cmd('@status')}
+async function sendTime(){await cmd('@time:'+Math.floor(Date.now()/1000)+':'+(-new Date().getTimezoneOffset()))}
+async function saveAlarm(){if(!alarm.value)return;const[h,m]=alarm.value.split(':');await cmd('@alarm:'+h+':'+m+':'+(alarmMsg.value||'¡Pi! Tienes una alarma.'))}
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script></body></html>
