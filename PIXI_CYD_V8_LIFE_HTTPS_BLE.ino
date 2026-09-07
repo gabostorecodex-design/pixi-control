@@ -127,7 +127,7 @@ String memPixi[LOCAL_MEMORY_MAX];
 uint8_t memCount = 0;
 
 
-// ---------------- PIXI LIFE V8.5 ----------------
+// ---------------- PIXI LIFE V8.6 ----------------
 String userName = "";
 String personality = "tierna";
 String favoriteGame = "";
@@ -649,7 +649,7 @@ void setupSDCard(){
   sdReady=SD.begin(5,sdSPI,10000000);
   if(sdReady){
     File f=SD.open("/pixi_boot.txt",FILE_APPEND);
-    if(f){f.println("PIXI V8.5 boot");f.close();}
+    if(f){f.println("PIXI V8.6 boot");f.close();}
   }
 }
 
@@ -1645,7 +1645,7 @@ const char WEB_PAGE[] PROGMEM = R"HTML(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Pixi V8.5 Local</title>
+<title>Pixi V8.6 Local</title>
 <style>
 :root{color-scheme:dark}
 *{box-sizing:border-box}
@@ -1676,7 +1676,7 @@ label{display:block;color:#a7bbd3;font-size:13px;margin-bottom:5px}
 <main>
 
 <div class="card">
-  <h1>🎀 Pixi V8.5</h1>
+  <h1>🎀 Pixi V8.6</h1>
   <div class="sub">LOCAL · sin IA · 2.097.152+ respuestas + 32.768 preguntas · instantaneo</div>
   <div class="status">
     <span class="badge" id="faceBadge">Cara: ...</span>
@@ -2673,7 +2673,7 @@ void bootAnimation(){
   canvas.setTextDatum(textdatum_t::middle_center);
   canvas.setTextColor(C_WHITE,C_BG);
   canvas.setFont(&fonts::Font2);
-  canvas.drawString("PIXI V8.5",160,92);
+  canvas.drawString("PIXI V8.6",160,92);
   canvas.setFont(&fonts::Font0);
   canvas.setTextColor(C_PINK,C_BG);
   canvas.drawString("LIFE",160,123);
@@ -2729,7 +2729,7 @@ void setup(){
   setFace(FACE_HAPPY,4500);
 
   Serial.println();
-  Serial.println("PIXI V8.5 LIFE listo");
+  Serial.println("PIXI V8.6 LIFE listo");
   Serial.print("AP: ");Serial.println(AP_NAME);
   Serial.print("AP IP: ");Serial.println(WiFi.softAPIP());
 

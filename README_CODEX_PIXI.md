@@ -1,21 +1,26 @@
-# PIXI V8.5 — Guía para Codex
+# PIXI V8.6 — Guía para Codex
 
 ## Objetivo
 
 Este proyecto convierte una **ESP32-2432S028 / CYD (Cheap Yellow Display)** en un mini robot de escritorio llamado **Pixi**.
 
-Pixi debe funcionar principalmente **en local**, sin Gemini ni APIs externas para responder. El teléfono se usa como:
+Pixi usa OpenAI para la conversación generativa. El teléfono se usa como:
 
 - micrófono
 - altavoz / TTS
 - panel de control
 - interfaz HTTPS para permisos del navegador
 
-La web HTTPS ofrece IA generativa local en WebGPU. Usa `Gemma 3 270M Instruct` como modo rápido predeterminado y conserva `Qwen2.5-0.5B-Instruct` como opción de mayor calidad. Ambos son gratuitos, no requieren API key y mantienen el motor del ESP32 como respaldo cuando el modelo no está disponible.
+La web HTTPS usa exclusivamente `gpt-5-nano` mediante la Responses API con
+salida progresiva. No incluye Gemma, Qwen, Whisper ni otros modelos descargables.
 
-La IA no se ejecuta dentro de la ESP32. Chrome o Edge en el teléfono descarga el modelo cuantizado la primera vez, genera una respuesta y la envía por BLE. Se necesita WebGPU y suficiente memoria en el teléfono; si falla, la web reenvía la pregunta al motor local del firmware.
+La API key no se guarda en la página ni en la ESP32. `openai-worker/` contiene
+un Cloudflare Worker que mantiene `OPENAI_API_KEY` como secreto, valida el origen
+y una clave de acceso separada, y transmite la respuesta a la página. La página
+envía el resultado a Pixi por BLE.
 
-Para reducir el consumo de memoria en celulares, la web usa el reconocimiento de voz del navegador mientras la IA está activa y libera Whisper antes de cargar el modelo generativo. No mantener ambos modelos cargados simultáneamente.
+La voz usa el reconocimiento incorporado del navegador y `speechSynthesis`, por
+lo que la página no carga modelos grandes en la memoria del celular.
 
 Prioridades:
 
@@ -69,20 +74,17 @@ LovyanGFX
 NimBLE-Arduino by h2zero
 ```
 
-No volver a depender de:
+No añadir al firmware ni a la página pública:
 
 ```text
-Gemini
-Google AI
-OpenAI API
-Claude API
-ArduinoJson para IA
-HTTPClient para IA
-WiFiClientSecure para IA
-API keys
+Gemma
+Qwen
+Whisper descargable
+Transformers.js
+API keys o secretos
 ```
 
-La lógica conversacional debe seguir siendo local.
+OpenAI solo se llama desde el servidor de `openai-worker/`.
 
 ---
 
@@ -102,6 +104,11 @@ PIXI_CYD_V8_LIFE_HTTPS_BLE/
 │   ├── manifest.webmanifest
 │   ├── sw.js
 │   └── .nojekyll
+│
+├── openai-worker/
+│   ├── worker.js
+│   ├── wrangler.toml
+│   └── README.md
 │
 ├── .github/
 │   └── workflows/
@@ -507,9 +514,11 @@ MICRÓFONO DEL TELÉFONO
    ↓
 PÁGINA HTTPS
    ↓
-reconocimiento de voz del navegador o Whisper local
+reconocimiento de voz del navegador
    ↓
-Gemma/Qwen local con salida progresiva
+servidor seguro `openai-worker`
+   ↓
+OpenAI GPT-5 nano con salida progresiva
    ↓
 Bluetooth BLE
    ↓
@@ -549,7 +558,7 @@ No intentar "forzar" permisos desde la ESP32.
 La solución correcta es:
 
 ```text
-HTTPS + getUserMedia + BLE
+HTTPS + reconocimiento del navegador + BLE
 ```
 
 ---
@@ -576,10 +585,10 @@ Funciones:
 conectar por BLE
 reconectar automáticamente un dispositivo ya autorizado
 pedir permiso de micrófono
-Whisper local en el navegador (WebAssembly)
-IA generativa local con texto visible mientras se genera
-errores descriptivos al cargar modelos
-PWA offline después de almacenar la app y dependencias usadas
+reconocimiento de voz incorporado en el navegador
+OpenAI GPT-5 nano con texto visible mientras se genera
+errores descriptivos de red y API
+PWA que abre offline
 TTS
 enviar texto
 mostrar respuesta
@@ -594,9 +603,8 @@ detectar emoción y enviarla a Pixi
 activar las 22 expresiones nuevas
 ```
 
-Los modelos grandes y sus librerías se guardan en caché durante la primera
-descarga correcta. Por eso la instalación inicial requiere Internet; luego la
-PWA puede abrirse sin conexión con los recursos que ya quedaron almacenados.
+La PWA puede abrir su interfaz sin conexión después de instalarse. La conversación
+con OpenAI siempre requiere Internet y un Worker configurado.
 
 ---
 

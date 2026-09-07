@@ -1,7 +1,7 @@
-PIXI V8.5 LIFE + HTTPS BLE
+PIXI V8.6 LIFE + HTTPS BLE
 =========================
 
-V8.5 incluye:
+V8.6 incluye:
 - motor local 2M+
 - memoria persistente
 - nombre y gustos
@@ -21,16 +21,23 @@ V8.5 incluye:
 - logros
 - BLE
 - ESP-NOW para tus otras ESP32
-- pagina HTTPS lista para GitHub Pages con Whisper local
-- IA generativa local y gratuita: Gemma 3 270M rapido o Qwen2.5 0.5B, sin API key
-- respuestas de IA visibles palabra por palabra mientras se generan
-- error detallado si la IA local no puede iniciar (nunca muestra solo "undefined")
+- pagina HTTPS lista para GitHub Pages con reconocimiento de voz del navegador
+- OpenAI GPT-5 nano mediante un servidor seguro, sin exponer la API key
+- respuestas de OpenAI visibles palabra por palabra mientras se generan
+- errores detallados de conexion y de la API
 - reconexion BLE automatica despues de autorizar PIXI una vez
-- PWA offline despues de la primera descarga completa de la app y modelos
+- PWA que abre offline; las respuestas de OpenAI requieren Internet
 - reconocimiento de emociones en la pagina y el firmware
 - modo seguro tras reinicios inestables o memoria critica
 - 22 expresiones nuevas, incluidas furiosa, sarcasmo, glitch y gesto rebelde
 - microfono y TTS del telefono
+
+OPENAI
+------
+La web ya no descarga Gemma, Qwen, Whisper ni otros modelos locales.
+Usa GPT-5 nano mediante el Cloudflare Worker incluido en openai-worker/.
+La API key solo se guarda como secreto del Worker. Consulta
+openai-worker/README.md para publicarlo y conectar la pagina.
 
 LINK HTTPS / MICROFONO
 ----------------------
@@ -93,4 +100,4 @@ Si no insertas tarjeta, Pixi sigue funcionando.
 
 NOTA:
 No se puede crear por software un microfono o parlante fisico inexistente.
-Esta V8.5 usa el telefono para audio e IA. Una version futura puede usar INMP441 + parlante.
+Esta V8.6 usa el telefono para audio e IA. Una version futura puede usar INMP441 + parlante.

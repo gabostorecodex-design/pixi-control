@@ -1,4 +1,4 @@
-PIXI V8.5 - COMO SUBIR A LA ESP32 DESDE ARDUINO IDE
+PIXI V8.6 - COMO SUBIR A LA ESP32 DESDE ARDUINO IDE
 ================================================
 
 1. Instala en Arduino IDE:
@@ -45,6 +45,10 @@ PIXI V8.5 - COMO SUBIR A LA ESP32 DESDE ARDUINO IDE
     - micrófono del teléfono
     - voz TTS
     - Bluetooth BLE con Pixi
+    - respuestas OpenAI GPT-5 nano mediante openai-worker/
+
+11. Publica openai-worker/ siguiendo openai-worker/README.md. La API key de
+    OpenAI debe guardarse como secreto del Worker y nunca dentro del .ino o la web.
 
 ARCHIVOS CLAVE
 --------------
@@ -53,4 +57,5 @@ LGFX_CYD.hpp                    -> pantalla/touch CYD
 README_CODEX_PIXI.md            -> instrucciones completas para Codex
 platformio.ini                  -> compilación alternativa con PlatformIO
 github-pages/                   -> web HTTPS
+openai-worker/                  -> servidor seguro para OpenAI
 .github/workflows/pages.yml     -> despliegue automático de GitHub Pages

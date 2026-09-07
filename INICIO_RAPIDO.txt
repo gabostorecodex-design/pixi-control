@@ -1,4 +1,4 @@
-PIXI V8.5 - INICIO RAPIDO
+PIXI V8.6 - INICIO RAPIDO
 
 1. Arduino IDE: instala esp32 by Espressif Systems.
 2. Instala LovyanGFX.
@@ -25,3 +25,9 @@ En Android Chrome:
 3. Elige PIXI por Bluetooth.
 4. Pulsa TOCA Y HABLA.
 5. Acepta el permiso del microfono.
+
+OPENAI:
+1. Revoca cualquier API key que hayas compartido por chat.
+2. Publica openai-worker/ siguiendo su README.md y guarda una clave nueva como secreto.
+3. En Pixi Voice pega la URL del Worker y la clave de acceso Pixi.
+4. La pagina usa GPT-5 nano; no guarda la API key de OpenAI.
