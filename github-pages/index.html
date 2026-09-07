@@ -13,20 +13,21 @@
 <body><main>
 <div class="card"><h1>🎀 Pixi Voice</h1><div class="sub">Micrófono local con Whisper + Bluetooth</div><div class="status"><span class="pill" id="btState">BLE: desconectado</span><span class="pill" id="mood">Pixi: --</span><span class="pill" id="clock">--:--</span></div></div>
 <div class="card"><button onclick="connectPixi()">🔵 CONECTAR A PIXI</button><p id="bleHelp" class="small">Abre esta página directamente en Google Chrome o Microsoft Edge y elige el dispositivo <b>PIXI</b>. Evita navegadores internos, Brave, Firefox y Safari.</p></div>
-<div class="card"><button id="micBtn" class="mic" onclick="talk()">🎙️ TOCA Y HABLA</button><div class="bubble"><b>Tu:</b> <span id="heard">...</span></div><div class="bubble"><b>Pixi:</b> <span id="reply">...</span></div><p id="micHelp" class="small">La primera vez descargará el modelo de voz local. Después queda guardado en caché.</p><div class="progress"><i id="modelProgress"></i></div></div>
+<div class="card"><button id="micBtn" class="mic" onclick="talk()">🎙️ TOCA Y HABLA</button><div class="bubble"><b>Tu:</b> <span id="heard">...</span></div><div class="bubble"><b>Pixi:</b> <span id="reply">...</span></div><p id="micHelp" class="small">Con IA activa se usa el reconocimiento liviano del navegador para no llenar la memoria. Sin IA se utiliza Whisper local.</p><div class="progress"><i id="modelProgress"></i></div></div>
 <div class="card"><h3>⌨️ Escribir</h3><div class="row"><input id="txt" placeholder="Escribe algo para Pixi"><button onclick="sendText()">Enviar</button></div></div>
 <div class="card"><h3>🧠 IA local gratuita</h3><label><input id="aiEnabled" type="checkbox" checked style="width:auto"> Usar IA para preguntas abiertas</label><p id="aiHelp" class="small">Qwen2.5 responde dentro del teléfono. La primera vez descarga el modelo; no necesita API ni suscripción.</p><div class="progress"><i id="aiProgress"></i></div><br><button id="aiBtn" onclick="ensureAI()">Preparar IA</button></div>
 <div class="card"><h3>🎀 Voz</h3><div class="row"><select id="voice"></select><select id="preset" onchange="presetVoice(this.value)"><option value="cute">Tierna</option><option value="tiny">Mini robot</option><option value="soft">Suave</option><option value="sleepy">Dormidita</option></select></div><p class="small">Tono</p><input id="pitch" type="range" min=".7" max="2" step=".05" value="1.4"><p class="small">Velocidad</p><input id="rate" type="range" min=".65" max="1.5" step=".05" value="1.05"><br><br><button onclick="speak('¡Holii! Soy Pixi. Pi pi.')">🔊 Probar voz</button></div>
 <div class="card"><h3>🧠 Perfil</h3><div class="row"><input id="name" placeholder="Tu nombre"><select id="personality"><option>tierna</option><option>juguetona</option><option>timida</option><option>traviesa</option><option>curiosa</option><option>dormilona</option></select></div><br><button onclick="saveProfile()">Guardar en Pixi</button></div>
 <div class="card"><h3>😊 Caras</h3><div class="grid"><button onclick="cmd('@face:happy')">😊 Feliz</button><button onclick="cmd('@face:love')">😍 Cariñosa</button><button onclick="cmd('@face:thinking')">🤔 Pensando</button><button onclick="cmd('@face:angry')">😠 Molesta</button><button onclick="cmd('@face:sleepy')">😴 Cansada</button><button onclick="cmd('@face:robot')">🤖 Robot</button></div></div>
 <div class="card"><h3>⏰ Alarma</h3><div class="row"><input id="alarm" type="time"><input id="alarmMsg" placeholder="Mensaje"></div><br><button onclick="saveAlarm()">Guardar alarma</button></div>
-<div class="card small">Whisper se ejecuta dentro del navegador. Esta versión evita el fallo de sesión del runtime 4.x con modelos q8 y tiene un modo de compatibilidad automático.</div>
+<div class="card small">La web evita mantener Whisper y Qwen cargados al mismo tiempo. Esto reduce cierres por falta de memoria en celulares.</div>
 </main>
 <script>
 const SERVICE='6e400001-b5a3-f393-e0a9-e50e24dcca9e',RX='6e400002-b5a3-f393-e0a9-e50e24dcca9e',TX='6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 let dev,rx,tx,rxText='',voices=[],writeQueue=Promise.resolve();const dec=new TextDecoder();
 let whisper=null,whisperLoading=null,recorder=null,recStream=null,recChunks=[],recording=false;
 let generator=null,generatorLoading=null,transformersLoading=null,aiHistory=[];
+const NativeSpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
 function $(id){return document.getElementById(id)}
 function getTransformers(){if(!transformersLoading)transformersLoading=import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');return transformersLoading}
 function loadVoices(){voices=speechSynthesis.getVoices();$('voice').innerHTML='';let best=0;voices.forEach((v,i)=>{const o=document.createElement('option');o.value=i;o.textContent=v.name+' · '+v.lang;$('voice').appendChild(o);if((v.lang||'').toLowerCase().startsWith('es'))best=i});$('voice').value=best}
@@ -49,6 +50,7 @@ async function ensureAI(){
  generatorLoading=(async()=>{
    if(!navigator.gpu)throw new Error('Este navegador no ofrece WebGPU. Usa Chrome o Edge actualizado.');
    $('aiBtn').disabled=true;$('aiBtn').textContent='Preparando…';$('aiHelp').textContent='Cargando Qwen2.5 local…';
+   if(whisper){$('aiHelp').textContent='Liberando memoria de voz…';await whisper.dispose();whisper=null;whisperLoading=null}
    const mod=await getTransformers();
    generator=await mod.pipeline('text-generation','onnx-community/Qwen2.5-0.5B-Instruct',{device:'webgpu',dtype:'q4',progress_callback:aiProgressText});
    $('aiProgress').style.width='100%';$('aiHelp').textContent='✅ IA local lista';$('aiBtn').textContent='IA lista';return generator;
@@ -66,11 +68,11 @@ async function routeText(text){
    const ai=await ensureAI();
    const system='Eres Pixi, una pequeña mascota robot tierna y curiosa. Responde en español claro, útil y correcto. Sé breve: máximo 60 palabras. Si no sabes algo, dilo. No afirmes tener conciencia ni sentimientos reales.';
    const messages=[{role:'system',content:system},...aiHistory,{role:'user',content:question}];
-   const output=await ai(messages,{max_new_tokens:96,do_sample:false,repetition_penalty:1.08});
+   const output=await ai(messages,{max_new_tokens:64,do_sample:false,repetition_penalty:1.08});
    let answer=generatedAnswer(output).replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
    if(!answer)throw new Error('El modelo no devolvió texto.');
    answer=trimUtf8(answer,275);
-   aiHistory.push({role:'user',content:question},{role:'assistant',content:answer});if(aiHistory.length>6)aiHistory=aiHistory.slice(-6);
+   aiHistory.push({role:'user',content:question},{role:'assistant',content:answer});if(aiHistory.length>4)aiHistory=aiHistory.slice(-4);
    $('reply').textContent=answer;$('aiHelp').textContent='✅ Respuesta generada en el teléfono';
    const sent=rx?await writeLine('@ai-reply:'+answer):false;if(!sent)speak(answer);
    return true;
@@ -97,7 +99,8 @@ async function ensureWhisper(){
 }
 async function startRecording(){try{await ensureWhisper();recStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});recChunks=[];recorder=new MediaRecorder(recStream);recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data)};recorder.onstop=transcribeRecording;recorder.start();recording=true;$('micBtn').textContent='⏹ DETENER Y ENVIAR';$('micHelp').textContent='🎙️ Grabando… habla y vuelve a tocar cuando termines.'}catch(e){recording=false;if(recStream)recStream.getTracks().forEach(t=>t.stop());$('micBtn').disabled=false;$('micBtn').textContent='🎙️ TOCA Y HABLA';$('micHelp').textContent='No pude usar el micrófono: '+e.message}}
 function stopRecording(){if(recorder&&recorder.state==='recording'){recording=false;$('micBtn').disabled=true;$('micBtn').textContent='🧠 ENTENDIENDO…';$('micHelp').textContent='Procesando tu voz localmente…';recorder.stop()}}
-async function talk(){if(recording)stopRecording();else startRecording()}
+function nativeTalk(){const recognition=new NativeSpeechRecognition();recognition.lang='es-CL';recognition.interimResults=false;recognition.maxAlternatives=1;$('micBtn').disabled=true;$('micBtn').textContent='🔴 ESCUCHANDO…';$('micHelp').textContent='Modo de voz liviano para conservar memoria de la IA.';recognition.onresult=async e=>{const t=e.results[0][0].transcript.trim();$('heard').textContent=t;await routeText(t)};recognition.onerror=e=>$('micHelp').textContent='Error de voz: '+e.error;recognition.onend=()=>{$('micBtn').disabled=false;$('micBtn').textContent='🎙️ TOCA Y HABLA'};recognition.start()}
+async function talk(){if(recording)stopRecording();else if($('aiEnabled').checked&&NativeSpeechRecognition)nativeTalk();else startRecording()}
 async function transcribeRecording(){try{if(recStream)recStream.getTracks().forEach(t=>t.stop());const type=(recorder&&recorder.mimeType)||'audio/webm';const blob=new Blob(recChunks,{type});if(blob.size<1000)throw new Error('La grabación quedó vacía.');const buf=await blob.arrayBuffer();const AC=window.AudioContext||window.webkitAudioContext;const ac=new AC({sampleRate:16000});const decoded=await ac.decodeAudioData(buf.slice(0));let audio;if(decoded.numberOfChannels===1){audio=new Float32Array(decoded.getChannelData(0))}else{const n=decoded.length;audio=new Float32Array(n);for(let ch=0;ch<decoded.numberOfChannels;ch++){const d=decoded.getChannelData(ch);for(let i=0;i<n;i++)audio[i]+=d[i]/decoded.numberOfChannels}}await ac.close();const out=await whisper(audio,{language:'spanish',task:'transcribe',chunk_length_s:20,stride_length_s:3});const t=((out&&out.text)||'').trim();if(!t){$('heard').textContent='(no entendí)';$('micHelp').textContent='No detecté palabras claras.'}else{$('heard').textContent=t;const sent=await routeText(t);$('micHelp').textContent=sent?'✅ Entendido y procesado.':'No pude procesar el mensaje.'}}catch(e){$('micHelp').textContent='Error procesando la voz: '+e.message}finally{$('micBtn').disabled=false;$('micBtn').textContent='🎙️ TOCA Y HABLA';recChunks=[];recorder=null;recStream=null}}
 async function saveProfile(){await cmd('@name:'+$('name').value.trim());await cmd('@personality:'+$('personality').value);await cmd('@status')}
 async function sendTime(){await cmd('@time:'+Math.floor(Date.now()/1000)+':'+(-new Date().getTimezoneOffset()))}

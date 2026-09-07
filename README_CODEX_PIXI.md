@@ -15,6 +15,8 @@ La web HTTPS también ofrece IA generativa local con `Qwen2.5-0.5B-Instruct` en 
 
 La IA no se ejecuta dentro de la ESP32. Chrome o Edge en el teléfono descarga el modelo cuantizado la primera vez, genera una respuesta y la envía por BLE. Se necesita WebGPU y suficiente memoria en el teléfono; si falla, la web reenvía la pregunta al motor local del firmware.
 
+Para reducir el consumo de memoria en celulares, la web usa el reconocimiento de voz del navegador mientras la IA está activa y libera Whisper antes de cargar Qwen. No mantener ambos modelos cargados simultáneamente.
+
 Prioridades:
 
 1. estabilidad
