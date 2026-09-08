@@ -1490,6 +1490,13 @@ void handleBleCommand(String msg){
     return;
   }
 
+  if(msg.startsWith("@alarm-ring:")){
+    alarmText=msg.substring(12);alarmText.trim();if(!alarmText.length())alarmText="Alarma. Despierta.";
+    alarmActive=true;speakingMode=true;manualFaceLock=false;setFace(FACE_SURPRISED,12000);
+    speechText=alarmText;speechUntil=millis()+12000;animMode=ANIM_SPARKLE;animUntil=millis()+12000;
+    bleSendLine("{\"type\":\"alarm\",\"active\":true}");return;
+  }
+
   if(msg=="@export"){
     bleSendLine("{\"type\":\"memory\",\"data\":\""+jsonEscape(exportMemoryText())+"\"}");
     return;

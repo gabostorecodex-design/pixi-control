@@ -55,6 +55,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     public static final String ACTION_SPEAK = "com.pixilife.android.SPEAK";
     public static final String ACTION_VOICE_TOGGLE = "com.pixilife.android.VOICE_TOGGLE";
     public static final String ACTION_ALARM = "com.pixilife.android.ALARM";
+    public static final String ACTION_GAZE = "com.pixilife.android.GAZE";
     private static final String SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
@@ -85,7 +86,8 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
         else if (ACTION_FACE.equals(action)) { String face = String.valueOf(intent.getStringExtra("text")); sendLine("@face:" + face); speak(facePhrase(face)); }
         else if (ACTION_SPEAK.equals(action)) speak(String.valueOf(intent.getStringExtra("text")));
         else if (ACTION_VOICE_TOGGLE.equals(action)) { voiceEnabled = !voiceEnabled; getSharedPreferences("pixi", MODE_PRIVATE).edit().putBoolean("voice_enabled", voiceEnabled).apply(); emit("voice", voiceEnabled ? "on" : "off"); if (!voiceEnabled && tts != null) tts.stop(); }
-        else if (ACTION_ALARM.equals(action)) { sendLine("@face:shocked"); sendLine("@emotion:surprised"); emit("reply", "Alarma: despierta."); speak("Alarma. Despierta."); }
+        else if (ACTION_ALARM.equals(action)) { String alarmText=intent.getStringExtra("text"); if(TextUtils.isEmpty(alarmText))alarmText="Alarma. Despierta."; sendLine("@alarm-ring:"+alarmText); emit("reply", alarmText); speak(alarmText); }
+        else if (ACTION_GAZE.equals(action)) sendLine("@gaze:"+intent.getStringExtra("text"));
         return START_STICKY;
     }
 
