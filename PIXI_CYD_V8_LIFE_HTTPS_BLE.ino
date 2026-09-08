@@ -417,12 +417,12 @@ String detectEmotionLocal(const String& text){
 }
 
 void applyEmotionState(const String& emotion){
-  if(emotion=="love"){happiness+=8;trustLevel+=5;setFace(FACE_LOVE,9000);}
-  else if(emotion=="sad"){happiness-=5;curiosity+=4;setFace(FACE_SAD,9000);}
-  else if(emotion=="angry"){irritation+=12;setFace(FACE_ANGRY,9000);}
+  if(emotion=="love"){happiness+=8;trustLevel+=5;setFace(FACE_LOVE,9000);animMode=ANIM_BLUSH;animUntil=millis()+1800;}
+  else if(emotion=="sad"){happiness-=5;curiosity+=4;setFace(FACE_SAD,9000);animMode=ANIM_SHIVER;animUntil=millis()+1800;}
+  else if(emotion=="angry"){irritation+=12;setFace(FACE_ANGRY,9000);animMode=ANIM_SHIVER;animUntil=millis()+1800;}
   else if(emotion=="scared"){curiosity+=6;setFace(FACE_SCARED,9000);}
-  else if(emotion=="surprised"){curiosity+=8;setFace(FACE_SURPRISED,9000);}
-  else if(emotion=="happy"){happiness+=7;irritation-=4;setFace(FACE_HAPPY,9000);}
+  else if(emotion=="happy"){happiness+=7;irritation-=4;setFace(FACE_HAPPY,9000);animMode=ANIM_LAUGH;animUntil=millis()+1800;}
+  else if(emotion=="surprised"){curiosity+=8;setFace(FACE_SURPRISED,9000);animMode=ANIM_SPARKLE;animUntil=millis()+1800;}
   else if(emotion=="bored"){boredom+=10;setFace(FACE_BORED,9000);}
   happiness=constrain(happiness,0,100);trustLevel=constrain(trustLevel,0,100);clampMood();
 }
