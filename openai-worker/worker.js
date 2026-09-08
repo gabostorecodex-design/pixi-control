@@ -30,11 +30,15 @@ function normalizeOpenRouterStream(body) {
       for (const line of lines) {
         if (!line.startsWith('data:')) continue;
         const payload = line.slice(5).trim(); if (!payload || payload === '[DONE]') continue;
-        try { const event = JSON.parse(payload), delta = event.choices?.[0]?.delta?.content || ''; if (delta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'response.output_text.delta', delta })}\n\n`)); } catch (_) {}
+        try { const event = JSON.parse(payload), delta = stripEmoji(event.choices?.[0]?.delta?.content || ''); if (delta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'response.output_text.delta', delta })}\n\n`)); } catch (_) {}
       }
     },
     cancel() { reader.cancel(); },
   });
+}
+
+function stripEmoji(value) {
+  return String(value).replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F]/gu, '').replace(/[ \t]{2,}/g, ' ');
 }
 
 export default {
@@ -75,9 +79,10 @@ export default {
       },
       body: JSON.stringify({
         model: MODEL,
-        messages: [{ role: 'system', content: 'Eres Pixi, una pequeña mascota robot tierna, curiosa y útil. Responde en español claro. Usa máximo 60 palabras. Mantén una personalidad juguetona.' }, ...history, { role: 'user', content: text }],
-        max_tokens: 140,
+        messages: [{ role: 'system', content: 'Eres Pixi, una mascota robot tierna, curiosa y con personalidad propia. Responde en español claro, solo texto, sin emojis ni etiquetas. Usa como máximo 35 palabras y ve directo al punto. Puedes reírte, molestarte o responder con ironía. Si el usuario te insulta, contesta con un insulto breve y juguetón, sin amenazas ni discriminación.' }, ...history, { role: 'user', content: text }],
+        max_tokens: 90,
         temperature: 0.75,
+        provider: { allow_fallbacks: true },
         stream: true,
       }),
     });
