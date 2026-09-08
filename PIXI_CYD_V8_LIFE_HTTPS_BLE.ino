@@ -1416,6 +1416,8 @@ String statusJsonLine(){
   j+="\"sd\":"+String(sdReady?"true":"false");
   j+=",\"safeMode\":"+String(safeMode?"true":"false");
   j+=",\"freeHeap\":"+String(ESP.getFreeHeap());
+  j+=",\"listening\":"+String(listeningMode?"true":"false");
+  j+=",\"uptime\":"+String(millis());
   j+="}";
   return j;
 }
@@ -1424,6 +1426,15 @@ void handleBleCommand(String msg){
   msg.trim();if(!msg.length())return;
 
   if(msg=="@status"){bleSendLine(statusJsonLine());return;}
+
+  if(msg.startsWith("@ai-state:")){
+    String state=msg.substring(10); state.trim();
+    if(state=="listen"){listeningMode=true; setFace(FACE_NEUTRAL,2500);}
+    else if(state=="thinking"){listeningMode=false; setFace(FACE_THINKING,6000);}
+    else if(state=="speaking"){listeningMode=false; setFace(FACE_HAPPY,5000);}
+    else if(state=="idle"){listeningMode=false; setFace(FACE_NEUTRAL,1800);}
+    bleSendLine(statusJsonLine()); return;
+  }
 
   if(msg.startsWith("@face:")){
     setFace(faceFromString(msg.substring(6)),10000);
