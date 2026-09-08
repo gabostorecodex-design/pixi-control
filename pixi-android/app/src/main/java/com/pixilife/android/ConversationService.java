@@ -53,6 +53,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     public static final String ACTION_MESSAGE = "com.pixilife.android.MESSAGE";
     public static final String ACTION_FACE = "com.pixilife.android.FACE";
     public static final String ACTION_SPEAK = "com.pixilife.android.SPEAK";
+    public static final String ACTION_VOICE_TOGGLE = "com.pixilife.android.VOICE_TOGGLE";
     private static final String SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
@@ -60,7 +61,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private SpeechRecognizer recognizer;
     private TextToSpeech tts;
-    private boolean continuous, listening, busy, speaking;
+    private boolean continuous, listening, busy, speaking, voiceEnabled = true;
     private BluetoothGatt gatt;
     private BluetoothGattCharacteristic rxCharacteristic;
     private BluetoothLeScanner scanner;
@@ -70,7 +71,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     private long lastDeltaAt;
     private String deltaBuffer = "";
 
-    @Override public void onCreate() { super.onCreate(); createNotificationChannel(); tts = new TextToSpeech(this, this); }
+    @Override public void onCreate() { super.onCreate(); voiceEnabled = getSharedPreferences("pixi", MODE_PRIVATE).getBoolean("voice_enabled", true); createNotificationChannel(); tts = new TextToSpeech(this, this); }
 
     @Override public int onStartCommand(Intent intent, int flags, int id) {
         ensureForeground();
@@ -81,6 +82,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
         else if (ACTION_MESSAGE.equals(action)) ask(String.valueOf(intent.getStringExtra("text")));
         else if (ACTION_FACE.equals(action)) { String face = String.valueOf(intent.getStringExtra("text")); sendLine("@face:" + face); speak(facePhrase(face)); }
         else if (ACTION_SPEAK.equals(action)) speak(String.valueOf(intent.getStringExtra("text")));
+        else if (ACTION_VOICE_TOGGLE.equals(action)) { voiceEnabled = !voiceEnabled; getSharedPreferences("pixi", MODE_PRIVATE).edit().putBoolean("voice_enabled", voiceEnabled).apply(); emit("voice", voiceEnabled ? "on" : "off"); if (!voiceEnabled && tts != null) tts.stop(); }
         return START_STICKY;
     }
 
@@ -96,7 +98,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
 
     private void startContinuous() { if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { emit("status", "Falta permiso de micrófono"); return; } continuous = true; busy = false; ensureForeground(); startRecognition(300); emit("status", "Conversación continua activa · BLE se reconecta solo"); }
     private void startRecognition(long delay) { if (!continuous || listening || busy || speaking || recognizer == null) return; main.postDelayed(() -> { if (!continuous || listening || busy || speaking) return; Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-CL").putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true); try { listening = true; recognizer.startListening(intent); sendAiState("listen"); } catch (Exception error) { listening = false; emit("status", "No se pudo iniciar voz: " + error.getMessage()); startRecognition(1500); } }, delay); }
-    private void stopConversation() { continuous = false; busy = false; if (recognizer != null) { try { recognizer.stopListening(); recognizer.cancel(); } catch (Exception ignored) {} } listening = false; if (tts != null) tts.stop(); speaking = false; closeGatt(); stopForeground(true); stopSelf(); emit("status", "Conversación detenida"); }
+    private void stopConversation() { continuous = false; busy = false; if (recognizer != null) { try { recognizer.stopListening(); recognizer.cancel(); } catch (Exception ignored) {} } listening = false; if (tts != null) tts.stop(); speaking = false; stopForeground(false); emit("status", "Conversación detenida"); }
 
     private void ask(String text) { if (TextUtils.isEmpty(text) || "null".equals(text)) return; busy = true; emit("heard", text); emit("reply", "Pensando..."); sendAiState("thinking"); if (hasInsult(text)) sendLine("@face:middlefinger"); main.postDelayed(() -> { if (busy) { busy = false; emit("reply", "No pude recibir respuesta. Revisa Internet e intenta de nuevo."); emit("status", "Error de conexion con la IA"); } }, 30000); sendLine("@ai-user:" + text); network.submit(() -> {
         HttpURLConnection connection = null;
@@ -118,7 +120,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     private boolean hasInsult(String value) { String t = value.toLowerCase(Locale.ROOT); String[] words = {"idiota", "imbecil", "estupida", "estupido", "pendeja", "pendejo", "cabrona", "cabron", "mierda", "puta", "puto", "fuck you", "fuck", "bitch", "asshole"}; for (String word : words) if (t.contains(word)) return true; return false; }
 
     @Override public void onInit(int result) { if (tts != null && result == TextToSpeech.SUCCESS) { Locale spanish = new Locale("es", "CL"); tts.setLanguage(spanish); tts.setPitch(1.28f); tts.setSpeechRate(0.92f); if (Build.VERSION.SDK_INT >= 21) { for (android.speech.tts.Voice voice : tts.getVoices()) { String name = voice.getName().toLowerCase(Locale.US); String lang = voice.getLocale().toLanguageTag().toLowerCase(Locale.US); if (lang.startsWith("es") && (name.contains("female") || name.contains("mujer") || name.contains("google"))) { tts.setVoice(voice); break; } } } tts.setOnUtteranceProgressListener(new UtteranceProgressListener() { @Override public void onStart(String id) { speaking = true; } @Override public void onDone(String id) { main.post(() -> { speaking = false; startRecognition(350); }); } @Override public void onError(String id) { main.post(() -> { speaking = false; startRecognition(350); }); } }); } if (recognizer == null && SpeechRecognizer.isRecognitionAvailable(this)) { recognizer = SpeechRecognizer.createSpeechRecognizer(this); recognizer.setRecognitionListener(new RecognitionListener() { @Override public void onReadyForSpeech(android.os.Bundle p) {} @Override public void onBeginningOfSpeech() {} @Override public void onRmsChanged(float v) {} @Override public void onBufferReceived(byte[] b) {} @Override public void onEndOfSpeech() { listening = false; if (continuous && !busy && !speaking) startRecognition(350); } @Override public void onError(int error) { listening = false; if (continuous && !busy && !speaking) startRecognition(error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 1500 : 500); } @Override public void onResults(android.os.Bundle results) { listening = false; ArrayList<String> values = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION); if (values != null && !values.isEmpty() && !busy) ask(values.get(0)); } @Override public void onPartialResults(android.os.Bundle results) { ArrayList<String> values = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION); if (values != null && !values.isEmpty()) emit("heard", values.get(0)); } @Override public void onEvent(int t, android.os.Bundle p) {} }); } if (continuous) startRecognition(300); }
-    private void speak(String text) { if (tts == null || TextUtils.isEmpty(text)) { sendAiState("idle"); startRecognition(350); return; } speaking = true; sendAiState("speaking"); tts.setPitch(1.42f); tts.setSpeechRate(1.03f); tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "pixi-" + System.currentTimeMillis()); }
+    private void speak(String text) { if (!voiceEnabled || tts == null || TextUtils.isEmpty(text)) { sendAiState("idle"); startRecognition(350); return; } speaking = true; sendAiState("speaking"); tts.setPitch(1.42f); tts.setSpeechRate(1.03f); tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "pixi-" + System.currentTimeMillis()); }
 
     private void scanForPixi() { if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) { emit("status", "Falta permiso Bluetooth cercano"); return; } BluetoothManager manager = getSystemService(BluetoothManager.class); BluetoothAdapter adapter = manager == null ? null : manager.getAdapter(); if (adapter == null || !adapter.isEnabled()) { emit("status", "Activa Bluetooth"); return; } scanner = adapter.getBluetoothLeScanner(); if (scanner == null) { emit("status", "BLE no disponible"); return; } emit("status", "Buscando PIXI…"); scanner.startScan(scanCallback); main.postDelayed(() -> { try { if (scanner != null) scanner.stopScan(scanCallback); } catch (Exception ignored) {} }, 10000); }
     private final ScanCallback scanCallback = new ScanCallback() { @Override public void onScanResult(int type, ScanResult result) { BluetoothDevice device = result.getDevice(); if ("PIXI".equals(device.getName())) { try { scanner.stopScan(this); } catch (Exception ignored) {} emit("status", "PIXI encontrada; conectando…"); connect(device); } } };
@@ -129,5 +131,6 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     private String facePhrase(String face) { if ("middlefinger".equals(face)) return "Fuck you."; if ("furious".equals(face)) return "Estoy furiosa."; if ("angry".equals(face)) return "Estoy enojada."; if ("annoyed".equals(face)) return "Ya me harte."; if ("love".equals(face)) return "Te quiero mucho."; if ("happy".equals(face)) return "Estoy feliz."; if ("thinking".equals(face)) return "Estoy pensando."; if ("sleepy".equals(face)) return "Tengo sueno."; if ("sad".equals(face)) return "Estoy triste."; if ("scared".equals(face)) return "Tengo miedo."; if ("surprised".equals(face)||"shocked".equals(face)) return "Que sorpresa."; if ("bored".equals(face)||"unimpressed".equals(face)) return "Que aburrimiento."; if ("sarcasm".equals(face)) return "Si, claro."; if ("embarrassed".equals(face)) return "Que verguenza."; if ("proud".equals(face)) return "Lo hice genial."; if ("playful".equals(face)) return "Jeje, te engane."; if ("dizzy".equals(face)) return "Todo da vueltas."; if ("suspicious".equals(face)) return "Aqui hay algo raro."; if ("nervous".equals(face)) return "Esto me pone nerviosa."; if ("relieved".equals(face)) return "Menos mal."; if ("grumpy".equals(face)) return "No me molestes."; if ("mischievous".equals(face)) return "Se me ocurrio una travesura."; if ("deadpan".equals(face)) return "Ajá. Fascinante."; if ("starry".equals(face)) return "Esto es increible."; if ("happycry".equals(face)) return "Voy a llorar de alegria."; if ("pout".equals(face)) return "No es justo."; if ("tongue".equals(face)) return "No me atrapas."; if ("glitch".equals(face)) return "Error del sistema."; if ("rebel".equals(face)) return "No sigo reglas."; return "Listo."; }
     private void closeGatt() { if (gatt != null) { try { gatt.close(); } catch (Exception ignored) {} gatt = null; } rxCharacteristic = null; }
     @Override public void onDestroy() { continuous = false; if (recognizer != null) recognizer.destroy(); if (tts != null) tts.shutdown(); closeGatt(); network.shutdownNow(); super.onDestroy(); }
+    @Override public void onTaskRemoved(Intent rootIntent) { ensureForeground(); super.onTaskRemoved(rootIntent); }
     @Override public IBinder onBind(Intent intent) { return null; }
 }

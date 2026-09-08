@@ -84,6 +84,7 @@ bool touching = false;
 bool autoMode = true;
 bool manualFaceLock = false;
 bool listeningMode = false;
+bool speakingMode = false;
 bool safeMode = false;
 bool bootMarkedStable = false;
 uint8_t unstableBootCount = 0;
@@ -1432,10 +1433,10 @@ void handleBleCommand(String msg){
 
   if(msg.startsWith("@ai-state:")){
     String state=msg.substring(10); state.trim();
-    if(state=="listen"){listeningMode=true; setFace(FACE_NEUTRAL,2500);}
-    else if(state=="thinking"){listeningMode=false; setFace(FACE_THINKING,6000);}
-    else if(state=="speaking"){listeningMode=false; setFace(FACE_HAPPY,5000);}
-    else if(state=="idle"){listeningMode=false; setFace(FACE_NEUTRAL,1800);}
+    if(state=="listen"){listeningMode=true; speakingMode=false; setFace(FACE_NEUTRAL,2500);}
+    else if(state=="thinking"){listeningMode=false; speakingMode=false; setFace(FACE_THINKING,6000);}
+    else if(state=="speaking"){listeningMode=false; speakingMode=true; setFace(FACE_HAPPY,5000);}
+    else if(state=="idle"){listeningMode=false; speakingMode=false; setFace(FACE_NEUTRAL,1800);}
     bleSendLine(statusJsonLine()); return;
   }
 
@@ -2375,6 +2376,12 @@ void drawEye(int cx,int cy,bool leftEye){
 void drawMouth(){
   const int cx=160,cy=155;
   if(sleeping){canvas.drawArc(cx,cy,22,14,10,170,C_WHITE);return;}
+
+  if(speakingMode && speechText.length() && millis()<speechUntil){
+    if ((millis()/150)%2==0) { canvas.fillEllipse(cx,cy+2,18,12,C_BLACK); canvas.drawArc(cx,cy+1,17,9,15,165,C_WHITE); }
+    else canvas.drawArc(cx,cy-3,24,18,25,155,C_WHITE);
+    return;
+  }
 
   switch(face){
     case FACE_HAPPY: canvas.drawArc(cx,cy-5,27,22,25,155,C_WHITE); break;
