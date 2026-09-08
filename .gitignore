@@ -1,2 +1,5 @@
 openai-worker/.dev.vars
 .wrangler/
+android-tools/
+pixi-android/.gradle/
+pixi-android/build/
