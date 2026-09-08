@@ -1,61 +1,20 @@
 package com.pixilife.android;
 
-import android.Manifest;
-import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import android.os.Bundle;
-import android.webkit.JavascriptInterface;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import android.Manifest; import android.app.Activity; import android.content.*; import android.content.pm.PackageManager; import android.graphics.*; import android.graphics.drawable.GradientDrawable; import android.os.*; import android.text.InputType; import android.view.*; import android.widget.*;
 
 public class MainActivity extends Activity {
-    private static final int PERMISSIONS = 42;
-    private static final String PAGE = "https://gabostorecodex-design.github.io/pixi-control/";
-    private WebView web;
-    private SharedPreferences prefs;
-    private boolean continuous;
-    private final BroadcastReceiver events = new BroadcastReceiver() {
-        @Override public void onReceive(Context context, Intent intent) {
-            String type = intent.getStringExtra("type"), value = intent.getStringExtra("value");
-            if (web == null || value == null) return;
-            String safe = js(value);
-            if ("reply".equals(type)) web.evaluateJavascript("document.getElementById('reply').textContent='" + safe + "';", null);
-            else if ("heard".equals(type)) web.evaluateJavascript("document.getElementById('heard').textContent='" + safe + "';", null);
-            else if ("status".equals(type)) web.evaluateJavascript("document.getElementById('micHelp').textContent='" + safe + "';", null);
-        }
-    };
-
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state); prefs = getSharedPreferences("pixi", MODE_PRIVATE); requestPermissionsIfNeeded();
-        web = new WebView(this); WebSettings settings = web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true); settings.setMediaPlaybackRequiresUserGesture(false); settings.setAllowFileAccess(false); web.setWebChromeClient(new WebChromeClient());
-        web.addJavascriptInterface(new PixiBridge(), "PixiNative"); web.setWebViewClient(new WebViewClient() { @Override public void onPageFinished(WebView view, String url) { injectBridge(); } }); setContentView(web); web.loadUrl(PAGE);
-    }
-
-    private void injectBridge() {
-        String url = js(prefs.getString("worker_url", "https://pixi-openai.gabostorecodex.workers.dev")); String token = js(prefs.getString("access_token", "Gabo@22622"));
-        String script = "javascript:(function(){localStorage.setItem('pixi-openai-url','" + url + "');localStorage.setItem('pixi-access-token','" + token + "');window.connectPixi=function(){PixiNative.connect()};window.toggleContinuous=function(){PixiNative.toggle()};window.sendText=function(){var e=document.getElementById('txt');if(e&&e.value.trim())PixiNative.send(e.value.trim())};window.saveApiConfig=function(){PixiNative.config(document.getElementById('apiUrl').value,document.getElementById('apiAccess').value);};var u=document.getElementById('apiUrl'),a=document.getElementById('apiAccess');if(u)u.value='" + url + "';if(a)a.value='" + token + "';})();";
-        web.evaluateJavascript(script, null);
-    }
-
-    private String js(String value) { return value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", ""); }
-    private void action(String action, String text) { Intent i = new Intent(this, ConversationService.class).setAction(action); if (text != null) i.putExtra("text", text); if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i); }
-    private void requestPermissionsIfNeeded() { java.util.ArrayList<String> needed = new java.util.ArrayList<>(); if (Build.VERSION.SDK_INT >= 31) { if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) needed.add(Manifest.permission.BLUETOOTH_SCAN); if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) needed.add(Manifest.permission.BLUETOOTH_CONNECT); } else if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) needed.add(Manifest.permission.ACCESS_FINE_LOCATION); if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) needed.add(Manifest.permission.RECORD_AUDIO); if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) needed.add(Manifest.permission.POST_NOTIFICATIONS); if (!needed.isEmpty()) requestPermissions(needed.toArray(new String[0]), PERMISSIONS); }
-    @Override protected void onResume() { super.onResume(); registerReceiver(events, new IntentFilter(ConversationService.EVENT), Build.VERSION.SDK_INT >= 33 ? RECEIVER_NOT_EXPORTED : 0); }
-    @Override protected void onPause() { super.onPause(); try { unregisterReceiver(events); } catch (Exception ignored) {} }
-    @Override public void onBackPressed() { if (web != null && web.canGoBack()) web.goBack(); else super.onBackPressed(); }
-
-    private final class PixiBridge {
-        @JavascriptInterface public void connect() { action(ConversationService.ACTION_SCAN, null); }
-        @JavascriptInterface public void toggle() { continuous = !continuous; action(continuous ? ConversationService.ACTION_CONTINUOUS : ConversationService.ACTION_STOP, null); }
-        @JavascriptInterface public void send(String text) { action(ConversationService.ACTION_MESSAGE, text); }
-        @JavascriptInterface public void config(String url, String token) { prefs.edit().putString("worker_url", url.trim().replaceAll("/+$", "")).putString("access_token", token.trim()).apply(); }
-    }
+ private static final int PERMISSIONS=42; private final int bg=Color.rgb(7,11,17), card=Color.rgb(17,25,35), blue=Color.rgb(30,115,232), pink=Color.rgb(216,47,100); private SharedPreferences prefs; private TextView bt,mood,clock,net,heard,reply,help; private EditText url,token,text,name; private Button continuous;
+ private final BroadcastReceiver events=new BroadcastReceiver(){public void onReceive(Context c,Intent i){String t=i.getStringExtra("type"),v=i.getStringExtra("value");if("reply".equals(t))reply.setText(v);else if("heard".equals(t))heard.setText(v);else if("status".equals(t)){help.setText(v);bt.setText(v!=null&&v.toLowerCase().contains("conect")?"BLE: PIXI conectada":"BLE: "+v);}}};
+ @Override public void onCreate(Bundle b){super.onCreate(b);prefs=getSharedPreferences("pixi",MODE_PRIVATE);ui();permissions();}
+ private void ui(){ScrollView s=new ScrollView(this);s.setBackgroundColor(bg);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(18,18,18,24);
+  TextView logo=label("🎀  Pixi Voice",28,Color.WHITE);logo.setTypeface(Typeface.DEFAULT,Typeface.BOLD);root.addView(logo);root.addView(label("OpenAI + Bluetooth",15,Color.rgb(145,166,192))); LinearLayout pills=new LinearLayout(this);pills.setOrientation(LinearLayout.HORIZONTAL);bt=pill("BLE: desconectado");mood=pill("Pixi: --");clock=pill("--:--");net=pill("En linea");pills.addView(bt);pills.addView(mood);pills.addView(clock);pills.addView(net);root.addView(pills);
+  LinearLayout ble=card();ble.addView(label("CONEXION BLE",18,Color.WHITE));Button connect=button("🔵 CONECTAR A PIXI",blue);ble.addView(connect);connect.setOnClickListener(v->act(ConversationService.ACTION_SCAN,null));ble.addView(label("En Android se usa Bluetooth nativo y reconexion automatica. Elige PIXI cuando aparezca.",12,Color.rgb(139,160,187)));root.addView(ble);
+  LinearLayout ai=card();ai.addView(label("⚡ OpenAI",18,Color.WHITE));url=edit("URL segura del servidor OpenAI",false);url.setText(prefs.getString("worker_url","https://pixi-openai.gabostorecodex.workers.dev"));token=edit("Clave de acceso Pixi (no API key)",true);token.setText(prefs.getString("access_token","Gabo@22622"));ai.addView(url);ai.addView(token);Button save=button("Guardar conexion",blue);ai.addView(save);save.setOnClickListener(v->save());ai.addView(label("La URL es tu Worker seguro. El token Pixi es PIXI_ACCESS_TOKEN. La API key sk-proj nunca va aqui.",12,Color.rgb(139,160,187)));root.addView(ai);
+  LinearLayout talk=card();continuous=button("🔁 Activar conversacion continua",pink);talk.addView(continuous);continuous.setOnClickListener(v->{save();act(ConversationService.ACTION_CONTINUOUS,null);continuous.setText("⏹ Detener conversacion continua");continuous.setOnClickListener(x->{act(ConversationService.ACTION_STOP,null);continuous.setText("🔁 Activar conversacion continua");});});heard=label("Tu: ...",16,Color.WHITE);reply=label("Pixi: ...",16,Color.rgb(255,220,245));talk.addView(heard);talk.addView(reply);help=label("La conversacion escucha, responde y vuelve a escuchar.",12,Color.rgb(139,160,187));talk.addView(help);root.addView(talk);
+  LinearLayout write=card();write.addView(label("⌨ Escribir",18,Color.WHITE));text=edit("Escribe algo para Pixi",false);write.addView(text);Button send=button("Enviar",blue);write.addView(send);send.setOnClickListener(v->{String q=text.getText().toString().trim();if(!q.isEmpty()){heard.setText("Tu: "+q);act(ConversationService.ACTION_MESSAGE,q);text.setText("");}});root.addView(write);
+  LinearLayout voice=card();voice.addView(label("🎀 Voz",18,Color.WHITE));voice.addView(label("Preset: Tierna · tono alto · velocidad suave",14,Color.LTGRAY));Button test=button("🔊 Probar voz",blue);voice.addView(test);test.setOnClickListener(v->act(ConversationService.ACTION_MESSAGE,"¡Holii! Soy Pixi. Pi pi."));root.addView(voice);
+  LinearLayout profile=card();profile.addView(label("🧠 Perfil",18,Color.WHITE));name=edit("Tu nombre",false);profile.addView(name);Button sp=button("Guardar en Pixi",blue);profile.addView(sp);sp.setOnClickListener(v->{act(ConversationService.ACTION_MESSAGE,"Mi nombre es "+name.getText().toString());});root.addView(profile);
+  LinearLayout faces=card();faces.addView(label("😊 Caras",18,Color.WHITE));String[][] fs={{"😊 Feliz","happy"},{"😍 Cariñosa","love"},{"🤔 Pensando","thinking"},{"😠 Molesta","angry"},{"😴 Cansada","sleepy"},{"🤖 Robot","robot"},{"😈 Traviesa","mischievous"},{"🖕 Fuck you","middlefinger"}};for(String[] f:fs){Button x=button(f[0],Color.rgb(26,41,60));faces.addView(x);x.setOnClickListener(v->act(ConversationService.ACTION_FACE,f[1]));}root.addView(faces);
+  root.addView(label("La app puede funcionar en segundo plano con notificacion activa. Android puede detener el microfono si fuerzas el cierre.",12,Color.rgb(139,160,187)));s.addView(root);setContentView(s);}
+ private TextView label(String v,int z,int c){TextView t=new TextView(this);t.setText(v);t.setTextSize(z);t.setTextColor(c);t.setPadding(0,8,0,8);return t;}private TextView pill(String v){TextView t=label(v,12,Color.WHITE);t.setPadding(12,8,12,8);return t;}private LinearLayout card(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);l.setPadding(16,12,16,16);GradientDrawable g=new GradientDrawable();g.setColor(card);g.setCornerRadius(22);l.setBackground(g);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,10,0,0);l.setLayoutParams(p);return l;}private EditText edit(String h,boolean secret){EditText e=new EditText(this);e.setHint(h);e.setHintTextColor(Color.GRAY);e.setTextColor(Color.WHITE);e.setSingleLine(true);e.setPadding(12,5,12,5);if(secret)e.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);return e;}private Button button(String v,int c){Button b=new Button(this);b.setText(v);b.setTextColor(Color.WHITE);b.setTextSize(15);GradientDrawable g=new GradientDrawable();g.setColor(c);g.setCornerRadius(15);b.setBackground(g);return b;}private void save(){prefs.edit().putString("worker_url",url.getText().toString().trim()).putString("access_token",token.getText().toString().trim()).apply();help.setText("Conexion guardada");}private void act(String a,String q){Intent i=new Intent(this,ConversationService.class).setAction(a);if(q!=null)i.putExtra("text",q);if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);}private void permissions(){java.util.ArrayList<String> n=new java.util.ArrayList<>();if(Build.VERSION.SDK_INT>=31){if(checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)!=PackageManager.PERMISSION_GRANTED)n.add(Manifest.permission.BLUETOOTH_SCAN);if(checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED)n.add(Manifest.permission.BLUETOOTH_CONNECT);}else if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)n.add(Manifest.permission.ACCESS_FINE_LOCATION);if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)n.add(Manifest.permission.RECORD_AUDIO);if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)n.add(Manifest.permission.POST_NOTIFICATIONS);if(!n.isEmpty())requestPermissions(n.toArray(new String[0]),PERMISSIONS);}@Override protected void onResume(){super.onResume();registerReceiver(events,new IntentFilter(ConversationService.EVENT),Build.VERSION.SDK_INT>=33?RECEIVER_NOT_EXPORTED:0);}@Override protected void onPause(){super.onPause();try{unregisterReceiver(events);}catch(Exception e){}}
 }
