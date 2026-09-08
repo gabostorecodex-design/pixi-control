@@ -1,7 +1,7 @@
 # Servidor seguro de OpenAI para Pixi
 
 Este Cloudflare Worker mantiene la API key fuera de GitHub Pages y usa
-`gpt-5-nano` con respuestas en tiempo real.
+`mistralai/mistral-small-3.2-24b-instruct` mediante OpenRouter.
 
 La API key compartida en el chat debe revocarse. Crea una nueva antes de seguir.
 
@@ -10,7 +10,7 @@ La API key compartida en el chat debe revocarse. Crea una nueva antes de seguir.
 1. Instala Node.js.
 2. Abre una terminal dentro de `openai-worker`.
 3. Ejecuta `npx wrangler login`.
-4. Guarda la nueva clave con `npx wrangler secret put OPENAI_API_KEY`.
+4. Guarda la clave de OpenRouter con `npx wrangler secret put OPENROUTER_API_KEY`.
 5. Crea una contraseña larga diferente y guárdala con
    `npx wrangler secret put PIXI_ACCESS_TOKEN`.
 6. Ejecuta `npx wrangler deploy`.

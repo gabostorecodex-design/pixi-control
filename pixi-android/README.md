@@ -6,7 +6,7 @@ BLE con reconexion, notificaciones y un servicio en primer plano.
 
 La aplicacion no contiene la API key de OpenAI. En la pantalla inicial guarda
 la URL de `openai-worker` y la clave de acceso Pixi; la API key real permanece
-como secreto del Worker. Usa `gpt-5-nano` con salida progresiva.
+como secreto del Worker. Usa Mistral Small 3.2 mediante OpenRouter con salida progresiva.
 
 ## Compilar
 

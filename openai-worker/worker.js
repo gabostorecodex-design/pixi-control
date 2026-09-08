@@ -1,4 +1,4 @@
-const MODEL = 'gpt-5-nano';
+const MODEL = 'mistralai/mistral-small-3.2-24b-instruct';
 const DEFAULT_ORIGIN = 'https://gabostorecodex-design.github.io';
 
 function cors(origin, env) {
@@ -18,6 +18,25 @@ function json(data, status, headers) {
   });
 }
 
+function normalizeOpenRouterStream(body) {
+  const reader = body.getReader(), decoder = new TextDecoder(), encoder = new TextEncoder();
+  let buffer = '';
+  return new ReadableStream({
+    async pull(controller) {
+      const { value, done } = await reader.read();
+      if (done) { controller.enqueue(encoder.encode('data: [DONE]\n\n')); controller.close(); return; }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n'); buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim(); if (!payload || payload === '[DONE]') continue;
+        try { const event = JSON.parse(payload), delta = event.choices?.[0]?.delta?.content || ''; if (delta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'response.output_text.delta', delta })}\n\n`)); } catch (_) {}
+      }
+    },
+    cancel() { reader.cancel(); },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -29,7 +48,7 @@ export default {
     if (url.pathname !== '/chat' || request.method !== 'POST') return json({ error: 'Ruta no encontrada' }, 404, headers);
     // WebView Android puede enviar Origin vacio; el token Pixi sigue siendo obligatorio.
     if (origin && origin !== (env.ALLOWED_ORIGIN || DEFAULT_ORIGIN)) return json({ error: 'Origen no autorizado' }, 403, headers);
-    if (!env.OPENAI_API_KEY) return json({ error: 'Falta OPENAI_API_KEY en el servidor' }, 503, headers);
+    if (!env.OPENROUTER_API_KEY) return json({ error: 'Falta OPENROUTER_API_KEY en el servidor' }, 503, headers);
     if (!env.PIXI_ACCESS_TOKEN || request.headers.get('X-Pixi-Token') !== env.PIXI_ACCESS_TOKEN) return json({ error: 'Clave de acceso Pixi incorrecta' }, 401, headers);
 
     let body;
@@ -46,24 +65,25 @@ export default {
       content: String(item.content || '').slice(0, 600),
     })) : [];
 
-    const upstream = await fetch('https://api.openai.com/v1/responses', {
+    const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': DEFAULT_ORIGIN,
+        'X-Title': 'Pixi Voice',
       },
       body: JSON.stringify({
         model: MODEL,
-        instructions: 'Eres Pixi, una pequeña mascota robot tierna, curiosa y útil. Responde en español claro. Usa máximo 60 palabras. Mantén una personalidad juguetona. Si no sabes algo, dilo. No afirmes tener conciencia ni sentimientos reales.',
-        input: [...history, { role: 'user', content: text }],
-        reasoning: { effort: 'minimal' },
-        max_output_tokens: 140,
+        messages: [{ role: 'system', content: 'Eres Pixi, una pequeña mascota robot tierna, curiosa y útil. Responde en español claro. Usa máximo 60 palabras. Mantén una personalidad juguetona.' }, ...history, { role: 'user', content: text }],
+        max_tokens: 140,
+        temperature: 0.75,
         stream: true,
       }),
     });
 
     if (!upstream.ok) {
-      let detail = `OpenAI respondió HTTP ${upstream.status}`;
+      let detail = `OpenRouter respondió HTTP ${upstream.status}`;
       try {
         const error = await upstream.json();
         detail = error.error?.message || detail;
@@ -71,7 +91,7 @@ export default {
       return json({ error: detail }, upstream.status, headers);
     }
 
-    return new Response(upstream.body, {
+    return new Response(normalizeOpenRouterStream(upstream.body), {
       status: 200,
       headers: {
         ...headers,
