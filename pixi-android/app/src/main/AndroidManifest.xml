@@ -16,5 +16,6 @@
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
         <service android:name=".ConversationService" android:exported="false" android:foregroundServiceType="microphone|connectedDevice" />
+        <receiver android:name=".AlarmReceiver" android:exported="false" />
     </application>
 </manifest>
