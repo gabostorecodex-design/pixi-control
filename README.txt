@@ -31,6 +31,7 @@ V8.6 incluye:
 - modo seguro tras reinicios inestables o memoria critica
 - 22 expresiones nuevas, incluidas furiosa, sarcasmo, glitch y gesto rebelde
 - microfono y TTS del telefono
+- aplicacion Android nativa en pixi-android/ para chat continuo, BLE y notificaciones
 
 OPENAI
 ------

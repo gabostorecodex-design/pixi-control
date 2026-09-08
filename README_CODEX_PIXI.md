@@ -110,6 +110,11 @@ PIXI_CYD_V8_LIFE_HTTPS_BLE/
 │   ├── wrangler.toml
 │   └── README.md
 │
+├── pixi-android/
+│   ├── app/src/main/AndroidManifest.xml
+│   ├── app/src/main/java/com/pixilife/android/
+│   └── README.md
+│
 ├── .github/
 │   └── workflows/
 │       └── pages.yml

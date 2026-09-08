@@ -1497,6 +1497,16 @@ void handleBleCommand(String msg){
     return;
   }
 
+  if(msg.startsWith("@ai-delta:")){
+    String partial=msg.substring(10);partial.trim();
+    if(partial.length()>170)partial=partial.substring(partial.length()-170);
+    if(partial.length()){
+      speechText=partial;speechUntil=millis()+3500;
+      setFace(FACE_THINKING,3500);animMode=ANIM_SPARKLE;animUntil=millis()+900;
+    }
+    return;
+  }
+
   if(msg.startsWith("@ai-reply:")){
     String aiReply=msg.substring(10);aiReply.trim();
     if(!aiReply.length())return;
