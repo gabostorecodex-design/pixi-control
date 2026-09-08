@@ -93,7 +93,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
 
     private void ensureForeground() {
         Notification notification = new Notification.Builder(this, "pixi_conversation").setContentTitle("Pixi Voice").setContentText(continuous ? "Conversación continua activa" : "Pixi lista para hablar").setSmallIcon(android.R.drawable.ic_btn_speak_now).setOngoing(true).build();
-        if (Build.VERSION.SDK_INT >= 29) startForeground(7, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE | android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+        if (Build.VERSION.SDK_INT >= 29) { int type=0; if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)type|=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE; if(Build.VERSION.SDK_INT<31||checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED)type|=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE; if(type!=0)startForeground(7,notification,type);else startForeground(7,notification); }
         else startForeground(7, notification);
     }
 
