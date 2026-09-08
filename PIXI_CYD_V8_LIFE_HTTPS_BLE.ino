@@ -2506,6 +2506,10 @@ void drawStatus(){
   canvas.drawString(faceName(face),42,6);
 
   canvas.setTextDatum(textdatum_t::top_right);
+  canvas.setTextColor(C_CYAN,C_BG);
+  canvas.drawString("GABO",312,18);
+
+  canvas.setTextDatum(textdatum_t::top_right);
   if(listeningMode){
     canvas.setTextColor(C_RED,C_BG);
     canvas.drawString("ESCUCHANDO",274,6);
@@ -2716,6 +2720,8 @@ void bootAnimation(){
   canvas.setFont(&fonts::Font0);
   canvas.setTextColor(C_PINK,C_BG);
   canvas.drawString("LIFE",160,123);
+  canvas.setTextColor(C_CYAN,C_BG);
+  canvas.drawString(" creado por GABO ",160,150);
   canvas.pushSprite(0,0);
   delay(600);
 
