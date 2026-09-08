@@ -349,6 +349,7 @@ String expressionPhrase(Face selected){
 }
 
 void setFace(Face f, uint32_t holdMs = 7000) {
+  if(manualFaceLock && f!=face)return;
   face = f;
   nextFaceAt = millis() + holdMs;
 }
@@ -1440,7 +1441,7 @@ void handleBleCommand(String msg){
   if(msg.startsWith("@face:")){
     String requested=msg.substring(6); requested.trim();
     if(requested=="auto"){manualFaceLock=false; autoMode=true; nextFaceAt=millis()+1000;}
-    else {manualFaceLock=true; autoMode=false; setFace(faceFromString(requested),0xFFFFFFFFUL);}
+    else {manualFaceLock=false; autoMode=true; setFace(faceFromString(requested),0xFFFFFFFFUL); manualFaceLock=true;}
     bleSendLine("{\"type\":\"ok\"}");return;
   }
 
@@ -1500,7 +1501,7 @@ void handleBleCommand(String msg){
   if(msg.startsWith("@expression:")){
     Face selected=faceFromString(msg.substring(12));
     String phrase=expressionPhrase(selected);
-    manualFaceLock=true;autoMode=false;setFace(selected,0xFFFFFFFFUL);speechText=phrase;speechUntil=millis()+12000;
+    manualFaceLock=false;autoMode=true;setFace(selected,0xFFFFFFFFUL);manualFaceLock=true;speechText=phrase;speechUntil=millis()+12000;
     lastReply=phrase;lastSound=(selected==FACE_FURIOUS||selected==FACE_MIDDLE_FINGER)?"angry":"chirp";
     bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(phrase)+
                 "\",\"face\":\""+String(faceName(selected))+
