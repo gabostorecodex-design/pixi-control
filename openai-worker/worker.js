@@ -27,7 +27,8 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
     if (url.pathname === '/health') return json({ ok: true, model: MODEL }, 200, headers);
     if (url.pathname !== '/chat' || request.method !== 'POST') return json({ error: 'Ruta no encontrada' }, 404, headers);
-    if (origin !== (env.ALLOWED_ORIGIN || DEFAULT_ORIGIN)) return json({ error: 'Origen no autorizado' }, 403, headers);
+    // WebView Android puede enviar Origin vacio; el token Pixi sigue siendo obligatorio.
+    if (origin && origin !== (env.ALLOWED_ORIGIN || DEFAULT_ORIGIN)) return json({ error: 'Origen no autorizado' }, 403, headers);
     if (!env.OPENAI_API_KEY) return json({ error: 'Falta OPENAI_API_KEY en el servidor' }, 503, headers);
     if (!env.PIXI_ACCESS_TOKEN || request.headers.get('X-Pixi-Token') !== env.PIXI_ACCESS_TOKEN) return json({ error: 'Clave de acceso Pixi incorrecta' }, 401, headers);
 
