@@ -1,4 +1,4 @@
-const MODEL = 'mistralai/mistral-small-3.2-24b-instruct';
+const MODEL = 'openrouter/free';
 const DEFAULT_ORIGIN = 'https://gabostorecodex-design.github.io';
 
 function cors(origin, env) {
@@ -89,7 +89,7 @@ export default {
         max_tokens: 90,
         temperature: 0.75,
         provider: { allow_fallbacks: true },
-        stream: true,
+        stream: false,
       }),
     });
 
@@ -102,7 +102,12 @@ export default {
       return json({ error: detail }, upstream.status, headers);
     }
 
-    return new Response(normalizeOpenRouterStream(upstream.body), {
+    let completion;
+    try { completion = await upstream.json(); } catch (_) { return json({ error: 'OpenRouter devolvió una respuesta inválida' }, 502, headers); }
+    const answer = stripEmoji(completion.choices?.[0]?.message?.content || '').trim();
+    if (!answer) return json({ error: 'OpenRouter no devolvió texto' }, 502, headers);
+    const sse = `data: ${JSON.stringify({ type: 'response.output_text.delta', delta: answer })}\n\ndata: [DONE]\n\n`;
+    return new Response(sse, {
       status: 200,
       headers: {
         ...headers,
