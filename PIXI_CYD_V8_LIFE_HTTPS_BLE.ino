@@ -85,6 +85,7 @@ bool autoMode = true;
 bool manualFaceLock = false;
 bool listeningMode = false;
 bool speakingMode = false;
+bool alarmActive = false;
 bool safeMode = false;
 bool bootMarkedStable = false;
 uint8_t unstableBootCount = 0;
@@ -691,7 +692,7 @@ void updateDailyRoutine(){
 
   if(alarmHour>=0&&alarmMinute>=0&&t.tm_hour==alarmHour&&t.tm_min==alarmMinute&&lastAlarmDay!=t.tm_yday){
     lastAlarmDay=t.tm_yday;
-    speechText=alarmText;speechUntil=millis()+10000;setFace(FACE_SURPRISED,8000);
+    alarmActive=true;speechText=alarmText;speechUntil=millis()+10000;setFace(FACE_SURPRISED,8000);
     bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(alarmText)+
                 "\",\"face\":\"surprised\",\"sound\":\"alarm\"}");
   }
@@ -2432,6 +2433,9 @@ void drawMouth(){
 }
 
 void drawExtras(){
+  if(alarmActive && millis()<speechUntil){
+    canvas.setTextDatum(textdatum_t::middle_center);canvas.setTextColor(C_RED,C_FACE);canvas.setFont(&fonts::Font2);canvas.drawString(localClockText(),160,42);
+  } else if(alarmActive) alarmActive=false;
   if(face==FACE_HAPPY||face==FACE_VERY_HAPPY||face==FACE_LOVE||face==FACE_EMBARRASSED||face==FACE_HAPPY_CRY){
     canvas.fillEllipse(53,145,18,6,C_PINK);
     canvas.fillEllipse(267,145,18,6,C_PINK);
