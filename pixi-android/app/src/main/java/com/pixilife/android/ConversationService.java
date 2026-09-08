@@ -50,6 +50,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     public static final String ACTION_CONTINUOUS = "com.pixilife.android.CONTINUOUS";
     public static final String ACTION_STOP = "com.pixilife.android.STOP";
     public static final String ACTION_MESSAGE = "com.pixilife.android.MESSAGE";
+    public static final String ACTION_FACE = "com.pixilife.android.FACE";
     private static final String SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
@@ -75,6 +76,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
         else if (ACTION_CONTINUOUS.equals(action)) startContinuous();
         else if (ACTION_STOP.equals(action)) stopConversation();
         else if (ACTION_MESSAGE.equals(action)) ask(String.valueOf(intent.getStringExtra("text")));
+        else if (ACTION_FACE.equals(action)) sendLine("@face:" + String.valueOf(intent.getStringExtra("text")));
         return START_STICKY;
     }
 
