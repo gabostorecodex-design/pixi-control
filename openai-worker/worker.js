@@ -24,7 +24,13 @@ function normalizeOpenRouterStream(body) {
   return new ReadableStream({
     async pull(controller) {
       const { value, done } = await reader.read();
-      if (done) { controller.enqueue(encoder.encode('data: [DONE]\n\n')); controller.close(); return; }
+      if (done) {
+        if (buffer.startsWith('data:')) {
+          const payload = buffer.slice(5).trim();
+          if (payload && payload !== '[DONE]') { try { const event = JSON.parse(payload), delta = stripEmoji(event.choices?.[0]?.delta?.content || ''); if (delta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'response.output_text.delta', delta })}\n\n`)); } catch (_) {} }
+        }
+        controller.enqueue(encoder.encode('data: [DONE]\n\n')); controller.close(); return;
+      }
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n'); buffer = lines.pop() || '';
       for (const line of lines) {
