@@ -76,6 +76,7 @@ enum Face : uint8_t {
 };
 
 Face face = FACE_NEUTRAL;
+Face lockedFace = FACE_NEUTRAL;
 
 bool sleeping = false;
 bool blinking = false;
@@ -1441,7 +1442,7 @@ void handleBleCommand(String msg){
   if(msg.startsWith("@face:")){
     String requested=msg.substring(6); requested.trim();
     if(requested=="auto"){manualFaceLock=false; autoMode=true; nextFaceAt=millis()+1000;}
-    else {manualFaceLock=false; autoMode=true; setFace(faceFromString(requested),0xFFFFFFFFUL); manualFaceLock=true;}
+    else {manualFaceLock=false; autoMode=true; lockedFace=faceFromString(requested); setFace(lockedFace,0xFFFFFFFFUL); manualFaceLock=true;}
     bleSendLine("{\"type\":\"ok\"}");return;
   }
 
@@ -1501,7 +1502,7 @@ void handleBleCommand(String msg){
   if(msg.startsWith("@expression:")){
     Face selected=faceFromString(msg.substring(12));
     String phrase=expressionPhrase(selected);
-    manualFaceLock=false;autoMode=true;setFace(selected,0xFFFFFFFFUL);manualFaceLock=true;speechText=phrase;speechUntil=millis()+12000;
+    manualFaceLock=false;autoMode=true;lockedFace=selected;setFace(lockedFace,0xFFFFFFFFUL);manualFaceLock=true;speechText=phrase;speechUntil=millis()+12000;
     lastReply=phrase;lastSound=(selected==FACE_FURIOUS||selected==FACE_MIDDLE_FINGER)?"angry":"chirp";
     bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(phrase)+
                 "\",\"face\":\""+String(faceName(selected))+
@@ -2106,7 +2107,7 @@ void setupWeb() {
   server.on("/face", HTTP_GET, []() {
     if (server.hasArg("v")) {
       sleeping = false;
-      setFace(faceFromString(server.arg("v")), 15000);
+      manualFaceLock=false;autoMode=true;lockedFace=faceFromString(server.arg("v"));setFace(lockedFace,0xFFFFFFFFUL);manualFaceLock=true;
     }
     server.send(200, "text/plain", "OK");
   });
@@ -2783,6 +2784,9 @@ void loop(){
   updateDailyRoutine();
   saySpontaneously();
   broadcastPixiState();
+
+  // Una cara elegida manualmente tiene prioridad absoluta hasta elegir otra.
+  if(manualFaceLock)face=lockedFace;
 
   BleMessage bleMessage={};
   if(bleRxQueue!=nullptr&&xQueueReceive(bleRxQueue,&bleMessage,0)==pdTRUE)handleBleCommand(String(bleMessage.text));
