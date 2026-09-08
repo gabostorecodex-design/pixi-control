@@ -81,6 +81,7 @@ bool sleeping = false;
 bool blinking = false;
 bool touching = false;
 bool autoMode = true;
+bool manualFaceLock = false;
 bool listeningMode = false;
 bool safeMode = false;
 bool bootMarkedStable = false;
@@ -341,7 +342,7 @@ String expressionPhrase(Face selected){
     case FACE_POUT:return "No es justo...";
     case FACE_TONGUE:return "¡Prrr! No me atrapas.";
     case FACE_GLITCH:return "B-b-bug... sistema rebelde.";
-    case FACE_MIDDLE_FINGER:return "Fuck you. Déjame en paz.";
+    case FACE_MIDDLE_FINGER:return "Fuck you.";
     case FACE_REBEL:return "Que se jodan las reglas. Pi.";
     default:return "Pi.";
   }
@@ -1437,8 +1438,16 @@ void handleBleCommand(String msg){
   }
 
   if(msg.startsWith("@face:")){
-    setFace(faceFromString(msg.substring(6)),10000);
+    String requested=msg.substring(6); requested.trim();
+    if(requested=="auto"){manualFaceLock=false; autoMode=true; nextFaceAt=millis()+1000;}
+    else {manualFaceLock=true; autoMode=false; setFace(faceFromString(requested),0xFFFFFFFFUL);}
     bleSendLine("{\"type\":\"ok\"}");return;
+  }
+
+  if(msg.startsWith("@gaze:")){
+    int p=msg.indexOf(':',6);
+    if(p>0){targetGazeX=constrain(msg.substring(6,p).toFloat(),-1.0f,1.0f);targetGazeY=constrain(msg.substring(p+1).toFloat(),-1.0f,1.0f);autoMode=false;bleSendLine(statusJsonLine());}
+    return;
   }
 
   if(msg.startsWith("@name:")){
@@ -1491,7 +1500,7 @@ void handleBleCommand(String msg){
   if(msg.startsWith("@expression:")){
     Face selected=faceFromString(msg.substring(12));
     String phrase=expressionPhrase(selected);
-    setFace(selected,12000);speechText=phrase;speechUntil=millis()+12000;
+    manualFaceLock=true;autoMode=false;setFace(selected,0xFFFFFFFFUL);speechText=phrase;speechUntil=millis()+12000;
     lastReply=phrase;lastSound=(selected==FACE_FURIOUS||selected==FACE_MIDDLE_FINGER)?"angry":"chirp";
     bleSendLine("{\"type\":\"reply\",\"reply\":\""+jsonEscape(phrase)+
                 "\",\"face\":\""+String(faceName(selected))+
@@ -2588,7 +2597,7 @@ void updateGaze(){
 }
 
 void updateFaceAutonomy(){
-  if(!autoMode||sleeping||listeningMode)return;
+  if(!autoMode||manualFaceLock||sleeping||listeningMode)return;
 
   uint32_t now=millis();
   if(now>=nextFaceAt){
