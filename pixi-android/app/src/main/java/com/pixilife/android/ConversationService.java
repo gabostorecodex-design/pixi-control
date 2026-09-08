@@ -21,6 +21,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -51,6 +52,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     public static final String ACTION_STOP = "com.pixilife.android.STOP";
     public static final String ACTION_MESSAGE = "com.pixilife.android.MESSAGE";
     public static final String ACTION_FACE = "com.pixilife.android.FACE";
+    public static final String ACTION_SPEAK = "com.pixilife.android.SPEAK";
     private static final String SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
@@ -77,6 +79,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
         else if (ACTION_STOP.equals(action)) stopConversation();
         else if (ACTION_MESSAGE.equals(action)) ask(String.valueOf(intent.getStringExtra("text")));
         else if (ACTION_FACE.equals(action)) sendLine("@face:" + String.valueOf(intent.getStringExtra("text")));
+        else if (ACTION_SPEAK.equals(action)) speak(String.valueOf(intent.getStringExtra("text")));
         return START_STICKY;
     }
 
@@ -102,10 +105,10 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
             if (base.isEmpty() || token.isEmpty()) throw new Exception("Configura URL y clave de acceso Pixi en la app");
             connection = (HttpURLConnection) new URL(base + "/chat").openConnection(); connection.setRequestMethod("POST"); connection.setConnectTimeout(12000); connection.setReadTimeout(60000); connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "application/json"); connection.setRequestProperty("X-Pixi-Token", token);
             String payload = "{\"text\":\"" + jsonEscape(text) + "\",\"history\":[]}"; try (OutputStream output = connection.getOutputStream()) { output.write(payload.getBytes(StandardCharsets.UTF_8)); }
-            if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) throw new Exception(readError(connection));
+            int httpCode = connection.getResponseCode(); Log.d("PixiAI", "Worker HTTP " + httpCode); if (httpCode < 200 || httpCode >= 300) throw new Exception(readError(connection));
             StringBuilder answer = new StringBuilder(); try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) { String line; while ((line = reader.readLine()) != null) { if (!line.startsWith("data:")) continue; String data = line.substring(5).trim(); if (data.isEmpty() || "[DONE]".equals(data)) continue; try { JSONObject event = new JSONObject(data); if ("response.output_text.delta".equals(event.optString("type"))) { String delta = event.optString("delta", ""); answer.append(delta); String partial = answer.toString(); main.post(() -> { emit("reply", partial); sendStreamDelta(partial); }); } } catch (Exception ignored) {} } }
-            final String result = answer.toString().trim(); main.post(() -> finishAnswer(result));
-        } catch (Exception error) { main.post(() -> finishAnswer("Error OpenAI: " + error.getMessage())); } finally { if (connection != null) connection.disconnect(); }
+            final String result = answer.toString().trim(); Log.d("PixiAI", "Worker respuesta " + result.length() + " caracteres"); main.post(() -> finishAnswer(result));
+        } catch (Exception error) { Log.e("PixiAI", "Error de consulta", error); main.post(() -> finishAnswer("Error OpenAI: " + error.getMessage())); } finally { if (connection != null) connection.disconnect(); }
     }); }
     private void finishAnswer(String answer) { busy = false; emit("reply", answer); sendLine("@ai-reply:" + answer); speak(answer); }
     private void sendStreamDelta(String text) { long now = System.currentTimeMillis(); if (now - lastDeltaAt < 250 || text.length() == deltaBuffer.length()) return; lastDeltaAt = now; deltaBuffer = text; String piece = text.length() > 170 ? text.substring(text.length() - 170) : text; sendLine("@ai-delta:" + piece); }
