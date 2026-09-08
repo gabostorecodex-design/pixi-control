@@ -1,4 +1,4 @@
-const MODEL = 'openrouter/free';
+const MODEL = 'google/gemini-2.5-flash-lite';
 const DEFAULT_ORIGIN = 'https://gabostorecodex-design.github.io';
 
 function cors(origin, env) {
@@ -47,6 +47,18 @@ function stripEmoji(value) {
   return String(value).replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F]/gu, '').replace(/[ \t]{2,}/g, ' ');
 }
 
+function extractAnswer(completion) {
+  const choice = completion?.choices?.[0] || {};
+  const content = choice.message?.content;
+  if (typeof content === 'string' && content.trim()) return content;
+  if (Array.isArray(content)) {
+    const joined = content.map(part => typeof part === 'string' ? part : (part?.text || part?.content || '')).join(' ');
+    if (joined.trim()) return joined;
+  }
+  if (typeof choice.text === 'string' && choice.text.trim()) return choice.text;
+  return '';
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -88,6 +100,7 @@ export default {
         messages: [{ role: 'system', content: 'Eres Pixi, una mascota robot tierna, curiosa y con personalidad propia. Responde en español claro, solo texto, sin emojis ni etiquetas. Usa como máximo 35 palabras y ve directo al punto. Puedes reírte, molestarte o responder con ironía. Si el usuario te insulta, contesta con un insulto breve y juguetón, sin amenazas ni discriminación.' }, ...history, { role: 'user', content: text }],
         max_tokens: 90,
         temperature: 0.75,
+        reasoning: { exclude: true },
         provider: { allow_fallbacks: true },
         stream: false,
       }),
@@ -104,7 +117,7 @@ export default {
 
     let completion;
     try { completion = await upstream.json(); } catch (_) { return json({ error: 'OpenRouter devolvió una respuesta inválida' }, 502, headers); }
-    const answer = stripEmoji(completion.choices?.[0]?.message?.content || '').trim();
+    const answer = stripEmoji(extractAnswer(completion)).trim();
     if (!answer) return json({ error: 'OpenRouter no devolvió texto' }, 502, headers);
     const sse = `data: ${JSON.stringify({ type: 'response.output_text.delta', delta: answer })}\n\ndata: [DONE]\n\n`;
     return new Response(sse, {
