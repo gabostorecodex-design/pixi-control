@@ -404,7 +404,8 @@ bool hasAny(const String& s, const char* a, const char* b=nullptr,
 
 bool isValidPersonality(const String& value) {
   return value == "tierna" || value == "juguetona" || value == "timida" ||
-         value == "traviesa" || value == "curiosa" || value == "dormilona";
+         value == "traviesa" || value == "curiosa" || value == "dormilona" ||
+         value == "tranquilo" || value == "divertido" || value == "serio" || value == "tecnico";
 }
 
 String detectEmotionLocal(const String& text){
@@ -574,6 +575,10 @@ String applyPersonality(const String& r) {
   if(personality=="juguetona") return "pi pi, "+r;
   if(personality=="curiosa") return "mmm, "+r;
   if(personality=="dormilona" && energy<45) return "zz... "+r;
+  if(personality=="tranquilo") return "Con calma: "+r;
+  if(personality=="divertido") return "Jeje, "+r;
+  if(personality=="serio") return r;
+  if(personality=="tecnico") return "Dato técnico: "+r;
   return r;
 }
 

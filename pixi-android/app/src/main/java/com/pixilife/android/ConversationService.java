@@ -57,6 +57,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     public static final String ACTION_ALARM = "com.pixilife.android.ALARM";
     public static final String ACTION_GAZE = "com.pixilife.android.GAZE";
     public static final String ACTION_NAME = "com.pixilife.android.NAME";
+    public static final String ACTION_PERSONALITY = "com.pixilife.android.PERSONALITY";
     private static final String SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
@@ -92,6 +93,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
         else if (ACTION_ALARM.equals(action)) { String alarmText=intent.getStringExtra("text"); if(TextUtils.isEmpty(alarmText))alarmText="Alarma. Despierta."; sendLine("@alarm-ring:"+alarmText); emit("reply", alarmText); speak(alarmText); }
         else if (ACTION_GAZE.equals(action)) sendLine("@gaze:"+intent.getStringExtra("text"));
         else if (ACTION_NAME.equals(action)) { String n=intent.getStringExtra("text"); if(!TextUtils.isEmpty(n)){getSharedPreferences("pixi",MODE_PRIVATE).edit().putString("user_name",n).apply();memoryManager.saveMemory(MemoryManager.IMPORTANT_MEMORY,"El usuario se llama "+n,true);sendLine("@name:"+n);emit("reply","Recordaré que te llamas "+n+".");} }
+        else if (ACTION_PERSONALITY.equals(action)) { String p=intent.getStringExtra("text");if(!TextUtils.isEmpty(p))sendLine("@personality:"+p); }
         return START_STICKY;
     }
 

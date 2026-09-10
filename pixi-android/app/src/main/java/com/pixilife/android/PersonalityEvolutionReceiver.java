@@ -1,0 +1,2 @@
+package com.pixilife.android;import android.content.*;
+public class PersonalityEvolutionReceiver extends BroadcastReceiver {@Override public void onReceive(Context c,Intent i){if("heard".equals(i.getStringExtra("type"))){String q=i.getStringExtra("value");if(q!=null){new PersonalityManager(c).observe(q);c.getSharedPreferences("pixi",Context.MODE_PRIVATE).edit().putString("last_user_text",q).apply();}}}}

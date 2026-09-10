@@ -32,6 +32,9 @@
         <activity android:name=".WeatherActivity" android:exported="false" />
         <activity android:name=".DiagnosticsActivity" android:exported="false" />
         <activity android:name=".TasksActivity" android:exported="false" />
+        <activity android:name=".PersonalityActivity" android:exported="false" />
+        <activity android:name=".NearbyActivity" android:exported="false" />
+        <activity android:name=".CalendarActivity" android:exported="false" />
         <service android:name=".ConversationService" android:exported="false" android:foregroundServiceType="microphone|connectedDevice" />
         <service android:name=".LiveVisionService" android:exported="false" android:foregroundServiceType="camera" />
         <service android:name=".PixiNotificationListener" android:label="Acceso a notificaciones de PIXI" android:exported="true" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
@@ -45,5 +48,6 @@
             <intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter>
         </receiver>
         <receiver android:name=".PersonalCommandReceiver" android:exported="false"><intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter></receiver>
+        <receiver android:name=".PersonalityEvolutionReceiver" android:exported="false"><intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter></receiver>
     </application>
 </manifest>
