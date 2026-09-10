@@ -17,6 +17,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -29,12 +30,16 @@
         <activity android:name=".PermissionCenterActivity" android:exported="false" />
         <activity android:name=".CameraActivity" android:exported="false" android:screenOrientation="portrait" />
         <service android:name=".ConversationService" android:exported="false" android:foregroundServiceType="microphone|connectedDevice" />
+        <service android:name=".LiveVisionService" android:exported="false" android:foregroundServiceType="camera" />
         <service android:name=".PixiNotificationListener" android:label="Acceso a notificaciones de PIXI" android:exported="true" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
         </service>
         <receiver android:name=".AlarmReceiver" android:exported="false" />
         <receiver android:name=".BootReceiver" android:exported="false">
             <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+        </receiver>
+        <receiver android:name=".VoiceCommandReceiver" android:exported="false">
+            <intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter>
         </receiver>
     </application>
 </manifest>
