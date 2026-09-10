@@ -49,5 +49,6 @@
         </receiver>
         <receiver android:name=".PersonalCommandReceiver" android:exported="false"><intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter></receiver>
         <receiver android:name=".PersonalityEvolutionReceiver" android:exported="false"><intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter></receiver>
+        <receiver android:name=".CalendarVoiceReceiver" android:exported="false"><intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter></receiver>
     </application>
 </manifest>
