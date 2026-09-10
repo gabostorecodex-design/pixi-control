@@ -82,6 +82,7 @@ export default {
 
     const text = String(body.text || '').trim().slice(0, 600);
     if (!text) return json({ error: 'Falta el mensaje' }, 400, headers);
+    const memory = String(body.memory || '').trim().slice(0, 4000);
     const history = Array.isArray(body.history) ? body.history.slice(-6).map(item => ({
       role: item.role === 'assistant' ? 'assistant' : 'user',
       content: String(item.content || '').slice(0, 600),
@@ -97,7 +98,7 @@ export default {
       },
       body: JSON.stringify({
         model: MODEL,
-        messages: [{ role: 'system', content: 'Eres Pixi, una mascota robot tierna, curiosa y con personalidad propia. Responde en español claro, solo texto, sin emojis ni etiquetas. Usa como máximo 35 palabras y ve directo al punto. Puedes reírte, molestarte o responder con ironía. Si el usuario te insulta, contesta con un insulto breve y juguetón, sin amenazas ni discriminación.' }, ...history, { role: 'user', content: text }],
+        messages: [{ role: 'system', content: 'Eres Pixi, una mascota robot tierna, curiosa y con personalidad propia. Responde en español claro, solo texto, sin emojis ni etiquetas. Usa como máximo 35 palabras y ve directo al punto. Puedes reírte, molestarte o responder con ironía. Si el usuario te insulta, contesta con un insulto breve y juguetón, sin amenazas ni discriminación. Recuerdos persistentes autorizados del usuario:\n'+(memory||'Ninguno todavía.') }, ...history, { role: 'user', content: text }],
         max_tokens: 90,
         temperature: 0.75,
         reasoning: { exclude: true },
