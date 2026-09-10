@@ -29,6 +29,9 @@
         <activity android:name=".MemoryActivity" android:exported="false" />
         <activity android:name=".PermissionCenterActivity" android:exported="false" />
         <activity android:name=".CameraActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".WeatherActivity" android:exported="false" />
+        <activity android:name=".DiagnosticsActivity" android:exported="false" />
+        <activity android:name=".TasksActivity" android:exported="false" />
         <service android:name=".ConversationService" android:exported="false" android:foregroundServiceType="microphone|connectedDevice" />
         <service android:name=".LiveVisionService" android:exported="false" android:foregroundServiceType="camera" />
         <service android:name=".PixiNotificationListener" android:label="Acceso a notificaciones de PIXI" android:exported="true" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
@@ -41,5 +44,6 @@
         <receiver android:name=".VoiceCommandReceiver" android:exported="false">
             <intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter>
         </receiver>
+        <receiver android:name=".PersonalCommandReceiver" android:exported="false"><intent-filter><action android:name="com.pixilife.android.EVENT" /></intent-filter></receiver>
     </application>
 </manifest>

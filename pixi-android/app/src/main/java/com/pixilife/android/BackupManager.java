@@ -1,0 +1,10 @@
+package com.pixilife.android;
+import android.content.*;import android.security.keystore.*;import java.io.*;import java.nio.charset.StandardCharsets;import java.security.*;import javax.crypto.*;import javax.crypto.spec.GCMParameterSpec;
+public final class BackupManager {
+ private static final String ALIAS="pixi_memory_backup";private final Context c;private final MemoryManager memories;
+ public BackupManager(Context c){this.c=c.getApplicationContext();memories=new MemoryManager(c);}
+ private SecretKey key()throws Exception{KeyStore ks=KeyStore.getInstance("AndroidKeyStore");ks.load(null);if(!ks.containsAlias(ALIAS)){KeyGenerator g=KeyGenerator.getInstance("AES","AndroidKeyStore");g.init(new KeyGenParameterSpec.Builder(ALIAS,KeyProperties.PURPOSE_ENCRYPT|KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build());g.generateKey();}return((KeyStore.SecretKeyEntry)ks.getEntry(ALIAS,null)).getSecretKey();}
+ public File backup()throws Exception{Cipher x=Cipher.getInstance("AES/GCM/NoPadding");x.init(Cipher.ENCRYPT_MODE,key());byte[] data=x.doFinal(memories.exportMemory().getBytes(StandardCharsets.UTF_8));File f=new File(c.getFilesDir(),"pixi-memory.backup");try(DataOutputStream o=new DataOutputStream(new FileOutputStream(f))){o.writeInt(x.getIV().length);o.write(x.getIV());o.write(data);}c.getSharedPreferences("pixi",Context.MODE_PRIVATE).edit().putLong("last_backup",System.currentTimeMillis()).apply();return f;}
+ public int restore()throws Exception{File f=new File(c.getFilesDir(),"pixi-memory.backup");try(DataInputStream in=new DataInputStream(new FileInputStream(f))){byte[] iv=new byte[in.readInt()];in.readFully(iv);byte[] encrypted=new byte[(int)(f.length()-4-iv.length)];in.readFully(encrypted);Cipher x=Cipher.getInstance("AES/GCM/NoPadding");x.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,iv));return memories.importMemory(new String(x.doFinal(encrypted),StandardCharsets.UTF_8));}}
+ public boolean exists(){return new File(c.getFilesDir(),"pixi-memory.backup").exists();}
+}
