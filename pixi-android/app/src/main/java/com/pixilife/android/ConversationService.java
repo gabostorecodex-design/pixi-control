@@ -56,6 +56,7 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     public static final String ACTION_VOICE_TOGGLE = "com.pixilife.android.VOICE_TOGGLE";
     public static final String ACTION_ALARM = "com.pixilife.android.ALARM";
     public static final String ACTION_GAZE = "com.pixilife.android.GAZE";
+    public static final String ACTION_NAME = "com.pixilife.android.NAME";
     private static final String SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
     private static final String TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
@@ -84,12 +85,13 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
         if (ACTION_SCAN.equals(action)) scanForPixi();
         else if (ACTION_CONTINUOUS.equals(action)) startContinuous();
         else if (ACTION_STOP.equals(action)) stopConversation();
-        else if (ACTION_MESSAGE.equals(action)) ask(String.valueOf(intent.getStringExtra("text")));
+        else if (ACTION_MESSAGE.equals(action)) askVisionAware(String.valueOf(intent.getStringExtra("text")));
         else if (ACTION_FACE.equals(action)) { String face = String.valueOf(intent.getStringExtra("text")); sendLine("@face:" + face); speak(facePhrase(face)); }
         else if (ACTION_SPEAK.equals(action)) speak(String.valueOf(intent.getStringExtra("text")));
         else if (ACTION_VOICE_TOGGLE.equals(action)) { voiceEnabled = !voiceEnabled; getSharedPreferences("pixi", MODE_PRIVATE).edit().putBoolean("voice_enabled", voiceEnabled).apply(); emit("voice", voiceEnabled ? "on" : "off"); if (!voiceEnabled && tts != null) tts.stop(); }
         else if (ACTION_ALARM.equals(action)) { String alarmText=intent.getStringExtra("text"); if(TextUtils.isEmpty(alarmText))alarmText="Alarma. Despierta."; sendLine("@alarm-ring:"+alarmText); emit("reply", alarmText); speak(alarmText); }
         else if (ACTION_GAZE.equals(action)) sendLine("@gaze:"+intent.getStringExtra("text"));
+        else if (ACTION_NAME.equals(action)) { String n=intent.getStringExtra("text"); if(!TextUtils.isEmpty(n)){getSharedPreferences("pixi",MODE_PRIVATE).edit().putString("user_name",n).apply();memoryManager.saveMemory(MemoryManager.IMPORTANT_MEMORY,"El usuario se llama "+n,true);sendLine("@name:"+n);emit("reply","Recordaré que te llamas "+n+".");} }
         return START_STICKY;
     }
 
@@ -102,6 +104,8 @@ public class ConversationService extends Service implements TextToSpeech.OnInitL
     private void createNotificationChannel() { if (Build.VERSION.SDK_INT >= 26) { NotificationChannel channel = new NotificationChannel("pixi_conversation", "Conversación de Pixi", NotificationManager.IMPORTANCE_LOW); getSystemService(NotificationManager.class).createNotificationChannel(channel); } }
     private void emit(String type, String value) { Intent event = new Intent(EVENT).setPackage(getPackageName()).putExtra("type", type).putExtra("value", value); sendBroadcast(event); }
     private void sendAiState(String state) { sendLine("@ai-state:" + state); emit("status", state.equals("listen") ? "Escuchando a Pixi..." : state.equals("thinking") ? "Pixi esta pensando..." : state.equals("speaking") ? "Pixi esta hablando..." : "Pixi lista"); }
+    private void askVisionAware(String text) { if(isVisionQuestion(text)){busy=true;emit("heard",text);emit("reply","Mirando...");sendAiState("thinking");VisionClient.analyze(this,text,(answer,error)->main.post(()->{busy=false;if(error!=null){emit("reply",error);speak(error);}else{actionLog.record("camera",text,"vision","analyze_latest_frame","último fotograma","OpenRouter","success","");finishAnswer(answer);}}));return;}ask(text); }
+    private boolean isVisionQuestion(String value){String t=value.toLowerCase(Locale.ROOT);return t.contains("qué ves")||t.contains("que ves")||t.contains("qué estás viendo")||t.contains("que estas viendo")||t.contains("en mi cara")||t.contains("en el pelo")||t.contains("en la mano")||t.contains("tengo lentes")||t.contains("mira esto")||t.contains("lee esto")||t.contains("delante");}
 
     private void startContinuous() { if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { emit("status", "Falta permiso de micrófono"); return; } continuous = true; busy = false; ensureForeground(); startRecognition(300); emit("status", "Conversación continua activa · BLE se reconecta solo"); }
     private void startRecognition(long delay) { if (!continuous || listening || busy || speaking || recognizer == null) return; main.postDelayed(() -> { if (!continuous || listening || busy || speaking) return; Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-CL").putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true); try { listening = true; recognizer.startListening(intent); sendAiState("listen"); } catch (Exception error) { listening = false; emit("status", "No se pudo iniciar voz: " + error.getMessage()); startRecognition(1500); } }, delay); }
