@@ -66,8 +66,8 @@ export default {
     const headers = cors(origin, env);
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
-    if (url.pathname === '/health') return json({ ok: true, model: MODEL }, 200, headers);
-    if (url.pathname !== '/chat' || request.method !== 'POST') return json({ error: 'Ruta no encontrada' }, 404, headers);
+    if (url.pathname === '/health') return json({ ok: true, model: MODEL, vision: true }, 200, headers);
+    if (!['/chat', '/vision'].includes(url.pathname) || request.method !== 'POST') return json({ error: 'Ruta no encontrada' }, 404, headers);
     // WebView Android puede enviar Origin vacio; el token Pixi sigue siendo obligatorio.
     if (origin && origin !== (env.ALLOWED_ORIGIN || DEFAULT_ORIGIN)) return json({ error: 'Origen no autorizado' }, 403, headers);
     if (!env.OPENROUTER_API_KEY) return json({ error: 'Falta OPENROUTER_API_KEY en el servidor' }, 503, headers);
@@ -78,6 +78,24 @@ export default {
       body = await request.json();
     } catch (_) {
       return json({ error: 'Solicitud JSON inválida' }, 400, headers);
+    }
+
+    if (url.pathname === '/vision') {
+      const image = String(body.image || '');
+      const question = String(body.question || 'Describe brevemente lo que ves.').slice(0, 400);
+      if (!image.startsWith('data:image/') || image.length > 8000000) return json({ error: 'Imagen ausente o demasiado grande' }, 400, headers);
+      const visual = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': DEFAULT_ORIGIN, 'X-Title': 'Pixi Vision' },
+        body: JSON.stringify({ model: MODEL, messages: [
+          { role: 'system', content: 'Describe solo elementos visibles. No inventes, no infieras datos sensibles y no hagas diagnósticos. Responde en español, sin emojis y en máximo 45 palabras.' },
+          { role: 'user', content: [{ type: 'text', text: question }, { type: 'image_url', image_url: { url: image } }] }
+        ], max_tokens: 120, temperature: 0.2 })
+      });
+      if (!visual.ok) { let detail = `Visión respondió HTTP ${visual.status}`; try { const e = await visual.json(); detail = e.error?.message || detail; } catch (_) {} return json({ error: detail }, visual.status, headers); }
+      const completion = await visual.json();
+      const answer = stripEmoji(extractAnswer(completion)).trim();
+      return answer ? json({ reply: answer, analyzedAt: Date.now(), provider: 'OpenRouter' }, 200, headers) : json({ error: 'El modelo visual no devolvió texto' }, 502, headers);
     }
 
     const text = String(body.text || '').trim().slice(0, 600);

@@ -20,6 +20,7 @@
 // ---------------- CONFIG ----------------
 static const char* AP_NAME = "PIXI-AI";
 static const char* AP_PASS = "pixirobot";
+static const char* FIRMWARE_VERSION = "PIXI 9.0-online-vision";
 
 LGFX lcd;
 LGFX_Sprite canvas(&lcd);
@@ -1407,6 +1408,7 @@ void bleSendLine(const String& line){
 String statusJsonLine(){
   String j="{";
   j+="\"type\":\"status\",";
+  j+="\"firmware\":\""+String(FIRMWARE_VERSION)+"\",";
   j+="\"name\":\""+jsonEscape(userName)+"\",";
   j+="\"personality\":\""+jsonEscape(personality)+"\",";
   j+="\"face\":\""+String(faceName(face))+"\",";
@@ -1421,6 +1423,14 @@ String statusJsonLine(){
   j+="\"sd\":"+String(sdReady?"true":"false");
   j+=",\"safeMode\":"+String(safeMode?"true":"false");
   j+=",\"freeHeap\":"+String(ESP.getFreeHeap());
+  j+=",\"minFreeHeap\":"+String(ESP.getMinFreeHeap());
+  j+=",\"psramTotal\":"+String(ESP.getPsramSize());
+  j+=",\"psramFree\":"+String(ESP.getFreePsram());
+  j+=",\"wifiConnected\":"+String(WiFi.status()==WL_CONNECTED?"true":"false");
+  j+=",\"wifiRssi\":"+String(WiFi.status()==WL_CONNECTED?WiFi.RSSI():0);
+  j+=",\"wifiSsid\":\""+jsonEscape(WiFi.status()==WL_CONNECTED?WiFi.SSID():String(""))+"\"";
+  j+=",\"ip\":\""+jsonEscape(WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():WiFi.softAPIP().toString())+"\"";
+  j+=",\"resetReason\":"+String((int)esp_reset_reason());
   j+=",\"listening\":"+String(listeningMode?"true":"false");
   j+=",\"uptime\":"+String(millis());
   j+="}";
